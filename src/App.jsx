@@ -435,19 +435,19 @@ const SPECIALISTS = [
   { id: "sp1", name: "د. هناء حسين", cat: "psych", years: 9, patients: 214, rating: 4.9, price: "3,500 دج", successRate: 91,
     bio: "طبيبة نفسية ومختصة في علاج اضطرابات الإدمان، أعمل على بناء خطط علاجية فردية تراعي الجانب الاجتماعي والمهني للمتعافي.",
     education: "دكتوراه في الطب النفسي — جامعة الجزائر", languages: ["العربية", "الفرنسية", "الإنجليزية"],
-    certs: ["اعتماد وزارة الصحة", "تخصص إضافي في علاج الإدمان"], tint: C.purple },
+    certs: ["اعتماد وزارة الصحة", "تخصص إضافي في علاج الإدمان"], tint: C.purple, photo: "/specialists/hanaa-hussein.jpg" },
   { id: "sp2", name: "كريم بلحاج", cat: "coach", years: 5, patients: 132, rating: 4.8, price: "2,200 دج", successRate: 87,
     bio: "مدرب رياضي متخصص في برامج إعادة البناء البدني أثناء التعافي، يركّز على الانضباط والاستمرارية.",
     education: "ليسانس علوم وتقنيات النشاطات البدنية والرياضية", languages: ["العربية", "الفرنسية"],
-    certs: ["شهادة تدريب معتمدة", "تخصص لياقة علاجية"], tint: C.amber },
+    certs: ["شهادة تدريب معتمدة", "تخصص لياقة علاجية"], tint: C.amber, photo: "/specialists/karim-belhadj.jpg" },
   { id: "sp3", name: "نادية شريف", cat: "nutrition", years: 6, patients: 98, rating: 4.7, price: "2,000 دج", successRate: 89,
     bio: "أخصائية تغذية علاجية، أساعد المتعافين على استعادة توازن جسدي يدعم استقرار المزاج.",
     education: "ماستر في التغذية العلاجية — جامعة وهران", languages: ["العربية", "الفرنسية"],
-    certs: ["اعتماد وزارة الصحة", "دبلوم تغذية سريرية"], tint: C.green },
+    certs: ["اعتماد وزارة الصحة", "دبلوم تغذية سريرية"], tint: C.green, photo: "/specialists/nadia-cherif.jpg" },
   { id: "sp4", name: "د. سامي براهيمي", cat: "addiction", years: 12, patients: 340, rating: 4.9, price: "4,000 دج", successRate: 93,
     bio: "مختص إدمان بخبرة 12 سنة، رائد العلاج الجماعي داخل StaySober.",
     education: "دكتوراه في علم النفس السريري — جامعة قسنطينة", languages: ["العربية", "الفرنسية", "الإنجليزية"],
-    certs: ["اعتماد وزارة الصحة", "شهادة دولية في العلاج الجماعي"], tint: C.blue },
+    certs: ["اعتماد وزارة الصحة", "شهادة دولية في العلاج الجماعي"], tint: C.blue, photo: "/specialists/sami-brahimi.jpg" },
 ];
 
 const COURSES = [
@@ -708,7 +708,9 @@ function Avatar({ name, size = 42, tint, verified }) {
 /* Professional headshot placeholder for specialists — until real photos are provided.
    Deliberately distinct from the initials-Avatar used for regular users: a soft
    gradient frame with a clean bust silhouette reads as "photo pending", not "user icon". */
-function SpecialistPhoto({ name, size = 64, tint = C.blue, verified }) {
+function SpecialistPhoto({ name, size = 64, tint = C.blue, verified, photo }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const showRealPhoto = photo && !imgFailed;
   return (
     <div style={{ position: "relative", flex: "none" }}>
       <div style={{
@@ -716,10 +718,14 @@ function SpecialistPhoto({ name, size = 64, tint = C.blue, verified }) {
         background: `linear-gradient(160deg, ${tint}22, ${tint}0D)`, border: `1px solid ${tint}2A`,
         display: "flex", alignItems: "flex-end", justifyContent: "center",
       }}>
+        {showRealPhoto ? (
+          <img src={photo} alt={name} onError={() => setImgFailed(true)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
         <svg width={size * 0.72} height={size * 0.72} viewBox="0 0 100 100" style={{ marginBottom: -size * 0.06 }}>
           <circle cx="50" cy="36" r="20" fill={tint} opacity=".85" />
           <path d="M12 98c0-24 17-40 38-40s38 16 38 40" fill={tint} opacity=".85" />
         </svg>
+        )}
       </div>
       {verified && (
         <div style={{ position: "absolute", bottom: -2, insetInlineEnd: -2, width: size * 0.3, height: size * 0.3, borderRadius: "50%", background: C.blue, border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1138,9 +1144,9 @@ function LandingScreen({ ctx }) {
       <Section style={{ padding: isMobile ? "40px 20px 0" : "70px 40px 0", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.1fr 0.9fr", gap: 40, alignItems: "center" }}>
         <div className="ss-fadeUp">
           <Pill tone="blue" icon={Sparkles}>منصة جزائرية للتعافي والاندماج المهني</Pill>
-          <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: isMobile ? 30 : 40, lineHeight: 1.3, margin: "16px 0" }}>ابق متعافي.<br />ابدأ اندماجك من جديد.</div>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: isMobile ? 30 : 40, lineHeight: 1.3, margin: "16px 0" }}>طريق العودة للحياة<br />يبدأ اليوم.</div>
           <p style={{ fontSize: 15, color: C.textDim, lineHeight: 1.9, maxWidth: 460, marginBottom: 26 }}>
-            رعاية نفسية ورياضية وغذائية في ملف واحد، دعم فوري وقت الأزمة، وتكوينات مهنية حقيقية تعيدك إلى سوق العمل بثقة.
+            أنت أقوى من الإدمان، وعائلتك تستحق رؤية أفضل نسخة منك. رعاية نفسية ورياضية وغذائية في ملف واحد، دعم فوري وقت الأزمة، وتكوين مهني حقيقي يعيدك لسوق العمل بثقة.
           </p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Btn size="lg" icon={ArrowLeft} onClick={() => ctx.setView("splash")}>ابدأ رحلتك مجانًا</Btn>
@@ -1176,6 +1182,27 @@ function LandingScreen({ ctx }) {
               <div style={{ width: 46, height: 46, borderRadius: 14, background: `${f.tint}14`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}><f.icon size={21} color={f.tint} /></div>
               <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 8 }}>{f.title}</div>
               <div style={{ fontSize: 12.5, color: C.textDim, lineHeight: 1.8 }}>{f.body}</div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* real-life recovery moments — reinforces the emotional mission with genuine scenes, not generic decoration */}
+      <Section style={{ padding: "20px 20px 70px" }}>
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.blue, letterSpacing: ".06em", textTransform: "uppercase" }}>رحلة حقيقية</div>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24, marginTop: 8 }}>من أول جلسة إلى أول يوم عمل</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 2 : 4},1fr)`, gap: 14 }}>
+          {[
+            { src: "/lifestyle/therapy-session.jpg", label: "جلسة علاج فردية" },
+            { src: "/lifestyle/group-support.jpg", label: "دعم جماعي" },
+            { src: "/lifestyle/sports-recovery.jpg", label: "نشاط رياضي" },
+            { src: "/lifestyle/learning-skill.jpg", label: "تكوين مهني" },
+          ].map((img) => (
+            <div key={img.src} style={{ borderRadius: 16, overflow: "hidden", position: "relative", aspectRatio: "1", background: C.bgSofter }}>
+              <img src={img.src} alt={img.label} onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ position: "absolute", bottom: 0, insetInlineStart: 0, insetInlineEnd: 0, background: "linear-gradient(0deg, rgba(0,0,0,.55), transparent)", padding: "20px 10px 8px", color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" }}>{img.label}</div>
             </div>
           ))}
         </div>
@@ -2060,7 +2087,7 @@ function HomeScreen({ ctx }) {
       <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10 }}>مقترح لك</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
         <Card hover onClick={() => { ctx.setActiveSpecialist(suggestedSpecialist || SPECIALISTS[2]); setView("specialistProfile"); }} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <SpecialistPhoto name={(suggestedSpecialist || SPECIALISTS[2]).name} tint={(suggestedSpecialist || SPECIALISTS[2]).tint} size={40} verified />
+          <SpecialistPhoto name={(suggestedSpecialist || SPECIALISTS[2]).name} tint={(suggestedSpecialist || SPECIALISTS[2]).tint} photo={(suggestedSpecialist || SPECIALISTS[2]).photo} size={40} verified />
           <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 12 }}>{(suggestedSpecialist || SPECIALISTS[2]).name}</div><div style={{ fontSize: 10.5, color: C.textDim }}>{CATEGORY_MAP[DB_SPECIALTY_TO_APP_CAT[(suggestedSpecialist || {}).cat] || "nutrition"]?.label || "مختص"} — لم تحجزي معه بعد</div></div>
           <ChevronLeft size={15} color={C.textFaint} />
         </Card>
@@ -2097,7 +2124,7 @@ function HomeScreen({ ctx }) {
       ) : (
         <Card style={{ display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
           <button onClick={() => { ctx.setActiveSpecialist(SPECIALISTS[0]); setView("specialistProfile"); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-            <SpecialistPhoto name={nextAppt?.users?.full_name || "د. هناء حسين"} tint={C.purple} size={44} verified />
+            <SpecialistPhoto name={nextAppt?.users?.full_name || "د. هناء حسين"} tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={44} verified />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>{nextAppt ? `${nextAppt.users?.full_name || "مختص"} — جلسة` : "د. هناء حسين — جلسة نفسية"}</div>
               <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 2 }}>
@@ -2289,7 +2316,7 @@ function SpecialistProfileScreen({ ctx }) {
       <div style={{ padding: "0 6px" }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
-            <div style={{ border: "4px solid #fff", borderRadius: 22, boxShadow: C.shadow }}><SpecialistPhoto name={sp.name} size={82} tint={sp.tint} verified /></div>
+            <div style={{ border: "4px solid #fff", borderRadius: 22, boxShadow: C.shadow }}><SpecialistPhoto name={sp.name} size={82} tint={sp.tint} photo={sp.photo} verified /></div>
             <div style={{ paddingBottom: 6 }}>
               <div style={{ fontWeight: 800, fontSize: 17, fontFamily: DISPLAY, display: "flex", alignItems: "center", gap: 5 }}>{sp.name}<ShieldCheck size={14} color={C.blue} /></div>
               <div style={{ fontSize: 12, color: C.textDim }}>{CATEGORY_MAP[sp.cat].label}</div>
@@ -2416,7 +2443,7 @@ function SpecialistsScreen({ ctx }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((s, i) => (
           <Card key={s.id} hover onClick={() => { ctx.setActiveSpecialist(s); ctx.setView("specialistProfile"); }} className="ss-fadeUp" style={{ display: "flex", alignItems: "center", gap: 12, animationDelay: `${i * 0.05}s` }}>
-            <SpecialistPhoto name={s.name} size={48} tint={s.tint} verified />
+            <SpecialistPhoto name={s.name} size={48} tint={s.tint} photo={s.photo} verified />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>{s.name}</div>
               <div style={{ fontSize: 11.5, color: C.textDim }}>{CATEGORY_MAP[s.cat].label} · {s.years} سنوات خبرة</div>
@@ -2928,7 +2955,7 @@ function ChatScreen({ ctx }) {
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.borderSoft}` }}>
         <IconBtn icon={ArrowRight} tone="ghost" onClick={() => ctx.setView("messages")} />
-        <SpecialistPhoto name="د. هناء حسين" tint={C.purple} size={40} verified />
+        <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={40} verified />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 13.5 }}>د. هناء حسين</div>
           <div style={{ fontSize: 10.5, color: C.green }}>{typing ? "تكتب الآن…" : "● متصلة الآن"}</div>
@@ -4212,7 +4239,7 @@ function BookingScreen({ ctx }) {
 
         <Card style={{ textAlign: "start", marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.borderSoft}` }}>
-            <SpecialistPhoto name={sp.name} size={44} tint={sp.tint} verified />
+            <SpecialistPhoto name={sp.name} size={44} tint={sp.tint} photo={sp.photo} verified />
             <div><div style={{ fontWeight: 700, fontSize: 13.5 }}>{sp.name}</div><div style={{ fontSize: 11, color: C.textDim }}>{CATEGORY_MAP[sp.cat].label}</div></div>
           </div>
           <Row2 icon={type === "video" ? Video : MapPin} label="نوع الاستشارة" value={type === "video" ? "مكالمة فيديو" : "حضوري بالعيادة"} />
@@ -5374,13 +5401,13 @@ function VideoCallScreen({ ctx }) {
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
         {phase === "waiting" ? (
           <div className="ss-fadeUp" style={{ textAlign: "center" }}>
-            <div className="ss-float" style={{ marginBottom: 18 }}><SpecialistPhoto name="د. هناء حسين" tint={C.purple} size={96} verified /></div>
+            <div className="ss-float" style={{ marginBottom: 18 }}><SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={96} verified /></div>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>بانتظار انضمام د. هناء حسين…</div>
             <div style={{ fontSize: 12, color: "#8B98A3" }}>سيبدأ الاتصال تلقائيًا فور دخولها</div>
           </div>
         ) : (
           <div className="ss-fade" style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #1A2226, #0F1417)" }}>
-            <SpecialistPhoto name="د. هناء حسين" tint={C.purple} size={120} verified />
+            <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={120} verified />
           </div>
         )}
         {/* self-view */}
