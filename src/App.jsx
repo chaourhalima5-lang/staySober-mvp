@@ -10,7 +10,7 @@ import {
   LogOut, Trash2, ShieldCheck, Smartphone, Facebook, Instagram, Linkedin,
   Youtube, Twitter, Edit3, MoreHorizontal, Sparkles, Target,
   Scissors, Code2, Palette, ShoppingBag, Languages, Megaphone, ChefHat, Wrench, Hammer,
-  FileText, File, MapPinned, Volume2, WifiOff, RefreshCw, Sun, Image as ImageIcon,
+  FileText, File, MapPinned, Volume2, WifiOff, RefreshCw, Sun, Image as ImageIcon, Scale, UserPlus, ClipboardList,
 } from "lucide-react";
 import {
   RadialBarChart, RadialBar, LineChart, Line, BarChart, Bar, XAxis, YAxis,
@@ -729,6 +729,57 @@ function SpecialistPhoto({ name, size = 64, tint = C.blue, verified, photo, gend
 /* Layered "cover art" for podcast episodes and courses — a gradient + subtle
    geometric pattern + icon, so cards read as designed artwork rather than a
    flat color tile repeated everywhere. */
+function LifestyleIllustration({ type, tint = C.blue, radius = 16 }) {
+  const scenes = {
+    // Two seated figures facing each other — individual therapy session
+    therapy: (
+      <g>
+        <circle cx="35" cy="34" r="9" fill={tint} opacity=".95" />
+        <path d="M20 68c0-10 7-17 15-17s15 7 15 17" fill={tint} opacity=".95" />
+        <circle cx="68" cy="38" r="7.5" fill={tint} opacity=".55" />
+        <path d="M55 68c0-9 6-15 13-15s13 6 13 15" fill={tint} opacity=".55" />
+        <path d="M46 50c3 2 5 2 8 0" stroke="#fff" strokeWidth="2.4" fill="none" strokeLinecap="round" opacity=".8" />
+      </g>
+    ),
+    // Circle of small figures — group support session
+    group: (
+      <g>
+        {[[22, 40, 1], [42, 26, .8], [62, 40, .95], [50, 58, .7], [30, 60, .85]].map(([cx, cy, o], i) => (
+          <g key={i}>
+            <circle cx={cx} cy={cy - 8} r="6.5" fill={tint} opacity={o} />
+            <path d={`M${cx - 9} ${cy + 12}c0-7 4-12 9-12s9 5 9 12`} fill={tint} opacity={o} />
+          </g>
+        ))}
+      </g>
+    ),
+    // Dynamic running figure with motion lines — sports during recovery
+    sports: (
+      <g>
+        <circle cx="46" cy="22" r="7" fill={tint} opacity=".95" />
+        <path d="M46 30l-4 16-14 10M46 30l10 12 12-4M42 46l-8 20M52 42l6 18" stroke={tint} strokeWidth="6" strokeLinecap="round" fill="none" opacity=".95" />
+        <path d="M10 70h20M14 78h16M8 62h14" stroke={tint} strokeWidth="3" strokeLinecap="round" opacity=".35" />
+      </g>
+    ),
+    // Figure at a desk with a laptop and a small graduation cap — vocational training
+    learning: (
+      <g>
+        <circle cx="38" cy="26" r="8" fill={tint} opacity=".95" />
+        <path d="M24 56c0-9 6-16 14-16s14 7 14 16" fill={tint} opacity=".95" />
+        <rect x="46" y="48" width="30" height="20" rx="2.5" fill={tint} opacity=".55" />
+        <rect x="49" y="51" width="24" height="13" rx="1.5" fill="#fff" opacity=".5" />
+        <path d="M61 34l14-5 14 5-14 5z" fill={tint} opacity=".8" />
+        <path d="M68 38v7c2 2 8 2 10 0v-7" stroke={tint} strokeWidth="2" fill="none" opacity=".8" />
+      </g>
+    ),
+  };
+  return (
+    <div style={{ width: "100%", height: "100%", minHeight: "100%", borderRadius: radius, position: "relative", overflow: "hidden", background: `linear-gradient(155deg, ${tint}18, ${tint}08)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <svg viewBox="0 0 86 86" width="74%" height="74%" preserveAspectRatio="xMidYMid meet">
+        {scenes[type] || scenes.therapy}
+      </svg>
+    </div>
+  );
+}
 function CoverArt({ icon: Icon, tint = C.blue, size = 64, w, h, radius, pattern = "dots" }) {
   const r = radius ?? size * 0.26;
   const pid = useRef(`cv-${Math.random().toString(36).slice(2, 8)}`).current;
@@ -1046,18 +1097,27 @@ const SUCCESS_METRICS = [
   { label: "يفيدون بتحسّن في العلاقات الأسرية", value: 92, sub: "بعد 6 أشهر من استخدام المنصة" },
 ];
 const LANDING_FEATURES = [
-  { icon: Users, title: "ملف رعاية موحّد", body: "معالجك النفسي ومدربك الرياضي وأخصائية التغذية يرون تقدّمك في مكان واحد، دون تكرار أو انقطاع.", tint: C.blue },
-  { icon: AlertTriangle, title: "دعم فوري وقت الأزمة", body: "زر طوارئ يصلك بخط مساعدة أو معالجك أو شخص تثق به خلال ثوانٍ، أينما كنت داخل التطبيق.", tint: C.ember },
-  { icon: GraduationCap, title: "اندماج مهني حقيقي", body: "تكوينات في البرمجة والتصميم والحرف واللغات — مهارات فعلية تفتح بابًا جديدًا في سوق العمل.", tint: C.amber },
-  { icon: ShieldCheck, title: "خصوصية بلا تنازل", body: "سرّية جلساتك محفوظة حتى من وليّ أمرك، وفق القانون 18-07 لحماية المعطيات الشخصية.", tint: C.green },
-  { icon: Building2, title: "شراكات مؤسساتية", body: "تغطية جماعية للموظفين عبر بوابة مخصّصة للشركات والجمعيات الشريكة.", tint: C.purple },
-  { icon: Users, title: "مجتمع داعم", body: "مساحة آمنة لمشاركة التجارب وتشجيع الآخرين، دون كشف أي معلومة حساسة.", tint: C.blueDeep },
+  { icon: Video, title: "جلسات علاج هجينة", body: "حضورية وعن بعد — علاج نفسي يناسب ظروف كل مستفيد.", tint: C.purple },
+  { icon: Apple, title: "برامج تغذية سليمة", body: "خطط غذائية يشرف عليها مختصون لدعم رحلة التعافي.", tint: C.green },
+  { icon: Dumbbell, title: "نشاط رياضي تأهيلي", body: "برامج رياضية موجهة لتحسين الصحة الجسدية والنفسية.", tint: C.amber },
+  { icon: GraduationCap, title: "تكوين تعليمي ومهني", body: "دورات عن بعد لاكتساب مهارات جديدة والاستعداد لسوق العمل.", tint: C.blue },
+  { icon: Users, title: "الدعم الجماعي", body: "لقاءات آمنة يشرف عليها مختصون لتبادل الخبرة والتحفيز.", tint: C.blueDeep },
+  { icon: Stethoscope, title: "متابعة متعددة التخصصات", body: "معالجك ومدربك وأخصائية التغذية يرون تقدّمك في ملف واحد.", tint: C.purple },
+  { icon: ShieldCheck, title: "حماية البيانات", body: "بياناتك مشفّرة، وفق القانون 18-07 لحماية المعطيات الشخصية.", tint: C.green },
+  { icon: Scale, title: "متابعة قضائية عند الحاجة", body: "دعم ومتابعة الجوانب القانونية المرتبطة برحلة التعافي عند الضرورة.", tint: C.ember },
+  { icon: Globe, title: "تطبيق متعدد اللغات", body: "العربية والفرنسية والإنجليزية — بنية جاهزة تناسب فريقك الطبي.", tint: C.blue },
+  { icon: Bell, title: "إشعارات ذكية", body: "تنبيهات لحظية للرسائل والمواعيد ونشاط المجتمع.", tint: C.amber },
+  { icon: Activity, title: "مؤشرات التقدم", body: "تتبّع يومي لمزاجك وخطواتك نحو التعافي بوضوح.", tint: C.blueDeep },
+  { icon: Users, title: "مجتمع داعم", body: "مساحة آمنة لمشاركة التجارب دون كشف أي معلومة حساسة.", tint: C.purple },
 ];
 const HOW_IT_WORKS = [
-  { n: "1", title: "سجّل واختر صفتك", body: "10 فئات مختلفة — من المستفيد إلى المؤسسة — كل واحدة بنموذج تسجيل مخصص." },
-  { n: "2", title: "تواصل مع فريق رعايتك", body: "احجز مع مختصين معتمدين، وابدأ بناء ملفك الموحّد." },
-  { n: "3", title: "تابع تقدّمك يوميًا", body: "سجّل شعورك، راقب مؤشراتك، واحصل على دعم فوري عند الحاجة." },
-  { n: "4", title: "اندمج من جديد", body: "اكتسب مهارة سوقية، وابنِ حياة مهنية واجتماعية مستقرة." },
+  { n: "1", icon: UserPlus, title: "إنشاء الحساب", body: "سجّل بصفتك المناسبة خلال دقائق." },
+  { n: "2", icon: ClipboardList, title: "التقييم الأولي", body: "تقييم شامل لفهم احتياجاتك بدقة." },
+  { n: "3", icon: Target, title: "تحديد الخطة العلاجية", body: "خطة فردية يضعها فريقك العلاجي." },
+  { n: "4", icon: Video, title: "الجلسات العلاجية والمتابعة", body: "جلسات حضورية وعن بعد، ومتابعة مستمرة." },
+  { n: "5", icon: Dumbbell, title: "برامج التغذية والنشاط الرياضي", body: "دعم جسدي يواكب تعافيك النفسي." },
+  { n: "6", icon: GraduationCap, title: "التكوين التعليمي والمهني", body: "مهارات جديدة تفتح أبوابًا حقيقية." },
+  { n: "7", icon: Briefcase, title: "الاندماج المهني بعد التعافي", body: "وظيفة واستقلال مهني حقيقي." },
 ];
 
 function Accordion({ items }) {
@@ -1146,7 +1206,7 @@ function LandingScreen({ ctx }) {
           </div>
         </div>
         <div className="ss-scaleIn" style={{ borderRadius: 28, overflow: "hidden", boxShadow: C.shadowLg, border: `1px solid ${C.border}` }}>
-          <img src={TEAM_IMG} alt="فريق الرعاية StaySober" style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 420 }} />
+          <img src="/images/hero-integrated-care.png" alt="StaySober — رعاية متكاملة" style={{ width: "100%", display: "block", objectFit: "contain", maxHeight: 420 }} />
         </div>
       </Section>
 
@@ -1179,22 +1239,30 @@ function LandingScreen({ ctx }) {
         </div>
       </Section>
 
-      {/* real-life recovery moments — reinforces the emotional mission with genuine scenes, not generic decoration */}
+      {/* services slider — real StaySober photography, one card per core service */}
       <Section style={{ padding: "20px 20px 70px" }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: C.blue, letterSpacing: ".06em", textTransform: "uppercase" }}>رحلة حقيقية</div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.blue, letterSpacing: ".06em", textTransform: "uppercase" }}>خدماتنا</div>
           <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24, marginTop: 8 }}>من أول جلسة إلى أول يوم عمل</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 2 : 4},1fr)`, gap: 14 }}>
+        <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
           {[
-            { src: "/lifestyle/therapy-session.jpg", label: "جلسة علاج فردية" },
-            { src: "/lifestyle/group-support.jpg", label: "دعم جماعي" },
-            { src: "/lifestyle/sports-recovery.jpg", label: "نشاط رياضي" },
-            { src: "/lifestyle/learning-skill.jpg", label: "تكوين مهني" },
-          ].map((img) => (
-            <div key={img.src} style={{ borderRadius: 16, overflow: "hidden", position: "relative", aspectRatio: "1", background: C.bgSofter }}>
-              <img src={img.src} alt={img.label} onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              <div style={{ position: "absolute", bottom: 0, insetInlineStart: 0, insetInlineEnd: 0, background: "linear-gradient(0deg, rgba(0,0,0,.55), transparent)", padding: "20px 10px 8px", color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" }}>{img.label}</div>
+            { src: "/images/service-hybrid-therapy.png", title: "جلسات علاج هجينة (حضورية وعن بعد)", body: "جلسات علاج نفسي تجمع بين الحضور المباشر والاستشارات عبر الفيديو بما يناسب احتياجات كل مستفيد." },
+            { src: "/images/service-nutrition.jpeg", title: "برامج تغذية سليمة", body: "خطط غذائية صحية يشرف عليها مختصو التغذية لدعم رحلة التعافي وتحسين نمط الحياة والمتابعة الغذائية المستمرة." },
+            { src: "/images/service-sports.jpeg", title: "نشاط رياضي تأهيلي", body: "برامج رياضية موجهة يشرف عليها مدربون مختصون للمساعدة على تحسين الصحة الجسدية والنفسية." },
+            { src: "/images/service-vocational-training.png", title: "تكوين تعليمي ومهني", body: "دورات تعليمية ومهنية عن بعد تساعد المستفيد على اكتساب مهارات جديدة والاستعداد لسوق العمل." },
+            { src: "/images/service-group-support.png", title: "الدعم الجماعي", body: "لقاءات جماعية آمنة يشرف عليها مختصون، تساعد المستفيدين على تبادل الخبرات والدعم والتحفيز." },
+            { src: "/images/hero-integrated-care.png", title: "رعاية متكاملة في مكان واحد", body: "يجتمع العلاج النفسي، النشاط الرياضي، التغذية، التكوين المهني، والمتابعة المستمرة داخل منصة رقمية واحدة." },
+            { src: "/images/service-career-journey.png", title: "اندماج مهني حقيقي بعد التعافي", body: "من التعافي، إلى اكتساب المهارات، ثم الحصول على وظيفة واستقلال مهني حقيقي." },
+          ].map((s) => (
+            <div key={s.title} style={{ flex: `0 0 ${isMobile ? "78%" : "31%"}`, scrollSnapAlign: "start", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden", boxShadow: C.shadow }}>
+              <div style={{ width: "100%", aspectRatio: "4/3", background: C.bgSofter, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img src={s.src} alt={s.title} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              </div>
+              <div style={{ padding: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{s.title}</div>
+                <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.8 }}>{s.body}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -1206,12 +1274,18 @@ function LandingScreen({ ctx }) {
           <div style={{ fontSize: 12, fontWeight: 800, color: C.blue, letterSpacing: ".06em", textTransform: "uppercase" }}>رحلتك معنا</div>
           <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24, marginTop: 8 }}>كيف تعمل المنصة</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 1 : 4},1fr)`, gap: 20 }}>
-          {HOW_IT_WORKS.map((s) => (
-            <div key={s.n} style={{ textAlign: "center" }}>
-              <div style={{ width: 46, height: 46, borderRadius: "50%", background: `linear-gradient(135deg, ${C.blueBright}, ${C.blueDeep})`, color: "#fff", fontWeight: 800, fontFamily: DISPLAY, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>{s.n}</div>
-              <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6 }}>{s.title}</div>
-              <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.75, maxWidth: 220, margin: "0 auto" }}>{s.body}</div>
+        <div style={{ maxWidth: 480, margin: "0 auto", position: "relative" }}>
+          <div style={{ position: "absolute", insetInlineStart: 23, top: 24, bottom: 24, width: 2, background: C.border }} />
+          {HOW_IT_WORKS.map((s, i) => (
+            <div key={s.n} style={{ display: "flex", gap: 18, marginBottom: i === HOW_IT_WORKS.length - 1 ? 0 : 30, position: "relative" }}>
+              <div style={{ width: 48, height: 48, borderRadius: "50%", background: `linear-gradient(135deg, ${C.blueBright}, ${C.blueDeep})`, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", boxShadow: C.shadow, zIndex: 1 }}>
+                <s.icon size={20} />
+              </div>
+              <div style={{ paddingTop: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: C.blue, marginBottom: 3 }}>الخطوة {s.n}</div>
+                <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>{s.title}</div>
+                <div style={{ fontSize: 12.5, color: C.textDim, lineHeight: 1.75 }}>{s.body}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -1382,8 +1456,8 @@ function SplashScreen({ ctx }) {
    ========================================================================= */
 const ONBOARD_SLIDES = [
   { photo: TEAM_IMG, title: "رعاية متكاملة في مكان واحد", body: "نفسية، رياضية، وغذائية — فريق واحد يتابعك بملف مشترك دون انقطاع بين التخصصات.", tint: C.blue },
-  { photo: "/lifestyle/learning-skill.jpg", title: "اندماج مهني حقيقي بعد التعافي", body: "تكوينات في البرمجة، التصميم، الحرف، واللغات — مهارات تفتح لك بابًا جديدًا في سوق العمل.", tint: C.amber },
-  { icon: ShieldCheck, title: "خصوصيتك أولوية مطلقة", body: "بياناتك مشفّرة، وسرّية جلساتك محفوظة حتى من أولياء الأمور — وفق القانون 18-07.", tint: C.green },
+  { illustration: "learning", title: "اندماج مهني حقيقي بعد التعافي", body: "تكوينات في البرمجة، التصميم، الحرف، واللغات — مهارات تفتح لك بابًا جديدًا في سوق العمل.", tint: C.amber },
+  { photo: "/images/privacy-security.jpeg", title: "خصوصيتك أولوية مطلقة", body: "بياناتك مشفّرة، وسرّية جلساتك محفوظة حتى من أولياء الأمور — وفق القانون 18-07.", tint: C.green },
 ];
 function OnboardingScreen({ ctx }) {
   const [i, setI] = useState(0);
@@ -1397,7 +1471,11 @@ function OnboardingScreen({ ctx }) {
       <div key={i} className="ss-scaleIn" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px", textAlign: "center" }}>
         {slide.photo ? (
           <div style={{ width: 220, height: 220, borderRadius: 28, overflow: "hidden", marginBottom: 26, boxShadow: C.shadowLg, border: `1px solid ${C.border}`, background: `${slide.tint}14` }}>
-            <img src={slide.photo} alt={slide.title} onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+            <img src={slide.photo} alt={slide.title} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+          </div>
+        ) : slide.illustration ? (
+          <div style={{ width: 220, height: 220, borderRadius: 28, overflow: "hidden", marginBottom: 26, boxShadow: C.shadowLg, border: `1px solid ${C.border}` }}>
+            <LifestyleIllustration type={slide.illustration} tint={slide.tint} radius={28} />
           </div>
         ) : (
           <div style={{ width: 120, height: 120, borderRadius: 32, background: `${slide.tint}14`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 30 }}>
@@ -3989,14 +4067,12 @@ function RecoveryProgramsScreen({ ctx }) {
           {programs.map((p, i) => {
             const mine = enrollments.find((e) => e.program_id === p.id);
             const tint = tints[i % tints.length];
-            const programImages = ["/lifestyle/group-support.jpg", "/lifestyle/therapy-session.jpg"];
+            const programTypes = ["group", "therapy"];
             return (
               <Card key={p.id}>
                 <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 14, overflow: "hidden", flex: "none", background: `${tint}14`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <img src={programImages[i % programImages.length]} alt={p.title}
-                      onError={(e) => { e.currentTarget.style.display = "none"; }}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <div style={{ width: 56, height: 56, borderRadius: 14, overflow: "hidden", flex: "none" }}>
+                    <LifestyleIllustration type={programTypes[i % programTypes.length]} tint={tint} radius={14} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.title}</div>
