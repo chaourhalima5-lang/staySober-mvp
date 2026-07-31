@@ -414,19 +414,19 @@ const SPECIALISTS = [
   { id: "sp1", name: "د. هناء حسين", cat: "psych", years: 9, patients: 214, rating: 4.9, price: "3,500 دج", successRate: 91,
     bio: "طبيبة نفسية ومختصة في علاج اضطرابات الإدمان، أعمل على بناء خطط علاجية فردية تراعي الجانب الاجتماعي والمهني للمتعافي.",
     education: "دكتوراه في الطب النفسي — جامعة الجزائر", languages: ["العربية", "الفرنسية", "الإنجليزية"],
-    certs: ["اعتماد وزارة الصحة", "تخصص إضافي في علاج الإدمان"], tint: C.purple, photo: "/specialists/hanaa-hussein.jpg" },
+    certs: ["اعتماد وزارة الصحة", "تخصص إضافي في علاج الإدمان"], tint: C.purple, photo: "/specialists/hanaa-hussein.jpg", gender: "female" },
   { id: "sp2", name: "كريم بلحاج", cat: "coach", years: 5, patients: 132, rating: 4.8, price: "2,200 دج", successRate: 87,
     bio: "مدرب رياضي متخصص في برامج إعادة البناء البدني أثناء التعافي، يركّز على الانضباط والاستمرارية.",
     education: "ليسانس علوم وتقنيات النشاطات البدنية والرياضية", languages: ["العربية", "الفرنسية"],
-    certs: ["شهادة تدريب معتمدة", "تخصص لياقة علاجية"], tint: C.amber, photo: "/specialists/karim-belhadj.jpg" },
+    certs: ["شهادة تدريب معتمدة", "تخصص لياقة علاجية"], tint: C.amber, photo: "/specialists/karim-belhadj.jpg", gender: "male" },
   { id: "sp3", name: "نادية شريف", cat: "nutrition", years: 6, patients: 98, rating: 4.7, price: "2,000 دج", successRate: 89,
     bio: "أخصائية تغذية علاجية، أساعد المتعافين على استعادة توازن جسدي يدعم استقرار المزاج.",
     education: "ماستر في التغذية العلاجية — جامعة وهران", languages: ["العربية", "الفرنسية"],
-    certs: ["اعتماد وزارة الصحة", "دبلوم تغذية سريرية"], tint: C.green, photo: "/specialists/nadia-cherif.jpg" },
+    certs: ["اعتماد وزارة الصحة", "دبلوم تغذية سريرية"], tint: C.green, photo: "/specialists/nadia-cherif.jpg", gender: "female" },
   { id: "sp4", name: "د. سامي براهيمي", cat: "addiction", years: 12, patients: 340, rating: 4.9, price: "4,000 دج", successRate: 93,
     bio: "مختص إدمان بخبرة 12 سنة، رائد العلاج الجماعي داخل StaySober.",
     education: "دكتوراه في علم النفس السريري — جامعة قسنطينة", languages: ["العربية", "الفرنسية", "الإنجليزية"],
-    certs: ["اعتماد وزارة الصحة", "شهادة دولية في العلاج الجماعي"], tint: C.blue, photo: "/specialists/sami-brahimi.jpg" },
+    certs: ["اعتماد وزارة الصحة", "شهادة دولية في العلاج الجماعي"], tint: C.blue, photo: "/specialists/sami-brahimi.jpg", gender: "male" },
 ];
 
 const COURSES = [
@@ -687,23 +687,34 @@ function Avatar({ name, size = 42, tint, verified }) {
 /* Professional headshot placeholder for specialists — until real photos are provided.
    Deliberately distinct from the initials-Avatar used for regular users: a soft
    gradient frame with a clean bust silhouette reads as "photo pending", not "user icon". */
-function SpecialistPhoto({ name, size = 64, tint = C.blue, verified, photo }) {
+function SpecialistPhoto({ name, size = 64, tint = C.blue, verified, photo, gender = "female" }) {
   const [imgFailed, setImgFailed] = useState(false);
   const showRealPhoto = photo && !imgFailed;
   return (
     <div style={{ position: "relative", flex: "none" }}>
       <div style={{
         width: size, height: size, borderRadius: size * 0.28, flex: "none", position: "relative", overflow: "hidden",
-        background: `linear-gradient(160deg, ${tint}22, ${tint}0D)`, border: `1px solid ${tint}2A`,
-        display: "flex", alignItems: "flex-end", justifyContent: "center",
+        background: `linear-gradient(160deg, ${tint}20, ${tint}0A)`, border: `1px solid ${tint}28`,
+        display: "flex", alignItems: "flex-end", justifyContent: "center", boxShadow: `inset 0 -${size * 0.1}px ${size * 0.2}px ${tint}12`,
       }}>
         {showRealPhoto ? (
           <img src={photo} alt={name} onError={() => setImgFailed(true)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : gender === "female" ? (
+          // Professional silhouette with hijab drape — culturally appropriate default
+          <svg width={size * 0.86} height={size * 0.86} viewBox="0 0 100 100" style={{ marginBottom: -size * 0.02 }}>
+            <path d="M50 12c-15 0-24 12-24 26 0 8 3 14 6 18-14 5-22 17-24 34a2 2 0 002 2h80a2 2 0 002-2c-2-17-10-29-24-34 3-4 6-10 6-18 0-14-9-26-24-26z" fill={tint} opacity=".16" />
+            <circle cx="50" cy="42" r="16" fill={tint} opacity=".92" />
+            <path d="M50 14c-13 0-22 10-23 23-1 9 2 16 5 20-2 1-4 2-6 4 3 3 8 5 24 5s21-2 24-5c-2-2-4-3-6-4 3-4 6-11 5-20-1-13-10-23-23-23z" fill={tint} opacity=".92" />
+            <path d="M8 96c2-19 12-32 28-37 4 3 9 5 14 5s10-2 14-5c16 5 26 18 28 37" fill={tint} opacity=".92" />
+            <path d="M38 66c4 3 8 4 12 4s8-1 12-4v6c-4 3-8 4-12 4s-8-1-12-4z" fill="#fff" opacity=".8" />
+          </svg>
         ) : (
-        <svg width={size * 0.72} height={size * 0.72} viewBox="0 0 100 100" style={{ marginBottom: -size * 0.06 }}>
-          <circle cx="50" cy="36" r="20" fill={tint} opacity=".85" />
-          <path d="M12 98c0-24 17-40 38-40s38 16 38 40" fill={tint} opacity=".85" />
-        </svg>
+          // Professional silhouette, male — subtle coat-collar detail
+          <svg width={size * 0.78} height={size * 0.78} viewBox="0 0 100 100" style={{ marginBottom: -size * 0.04 }}>
+            <circle cx="50" cy="34" r="19" fill={tint} opacity=".9" />
+            <path d="M10 98c0-23 16-39 40-39s40 16 40 39" fill={tint} opacity=".9" />
+            <path d="M38 62l12 10 12-10v8c-4 3-8 5-12 5s-8-2-12-5z" fill="#fff" opacity=".75" />
+          </svg>
         )}
       </div>
       {verified && (
@@ -723,7 +734,7 @@ function CoverArt({ icon: Icon, tint = C.blue, size = 64, w, h, radius, pattern 
   const pid = useRef(`cv-${Math.random().toString(36).slice(2, 8)}`).current;
   const width = w ?? size, height = h ?? size;
   return (
-    <div style={{ width, height, borderRadius: r, position: "relative", overflow: "hidden", flex: "none", background: `linear-gradient(150deg, ${tint}, ${C.blueDeep})` }}>
+    <div style={{ width, height, borderRadius: r, position: "relative", overflow: "hidden", flex: "none", background: `linear-gradient(155deg, ${tint}, ${C.blueDeep})` }}>
       <svg width="100%" height="100%" style={{ position: "absolute", inset: 0, opacity: .5 }}>
         <defs>
           <pattern id={pid} width={size * 0.22} height={size * 0.22} patternUnits="userSpaceOnUse">
@@ -734,9 +745,11 @@ function CoverArt({ icon: Icon, tint = C.blue, size = 64, w, h, radius, pattern 
         </defs>
         <rect width="100%" height="100%" fill={`url(#${pid})`} />
       </svg>
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(255,255,255,.16), transparent 55%)" }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(150deg, rgba(255,255,255,.22) 0%, transparent 45%, rgba(0,0,0,.12) 100%)" }} />
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon size={size * 0.4} color="#fff" strokeWidth={1.8} />
+        <div style={{ width: size * 0.56, height: size * 0.56, borderRadius: size * 0.18, background: "rgba(255,255,255,.18)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.3)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(0,0,0,.12)" }}>
+          <Icon size={size * 0.28} color="#fff" strokeWidth={1.8} />
+        </div>
       </div>
     </div>
   );
@@ -2066,7 +2079,7 @@ function HomeScreen({ ctx }) {
       <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10 }}>مقترح لك</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
         <Card hover onClick={() => { ctx.setActiveSpecialist(suggestedSpecialist || SPECIALISTS[2]); setView("specialistProfile"); }} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <SpecialistPhoto name={(suggestedSpecialist || SPECIALISTS[2]).name} tint={(suggestedSpecialist || SPECIALISTS[2]).tint} photo={(suggestedSpecialist || SPECIALISTS[2]).photo} size={40} verified />
+          <SpecialistPhoto name={(suggestedSpecialist || SPECIALISTS[2]).name} tint={(suggestedSpecialist || SPECIALISTS[2]).tint} photo={(suggestedSpecialist || SPECIALISTS[2]).photo} gender={(suggestedSpecialist || SPECIALISTS[2]).gender || "female"} size={40} verified />
           <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 12 }}>{(suggestedSpecialist || SPECIALISTS[2]).name}</div><div style={{ fontSize: 10.5, color: C.textDim }}>{CATEGORY_MAP[DB_SPECIALTY_TO_APP_CAT[(suggestedSpecialist || {}).cat] || "nutrition"]?.label || "مختص"} — لم تحجزي معه بعد</div></div>
           <ChevronLeft size={15} color={C.textFaint} />
         </Card>
@@ -2103,7 +2116,7 @@ function HomeScreen({ ctx }) {
       ) : (
         <Card style={{ display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
           <button onClick={() => { ctx.setActiveSpecialist(SPECIALISTS[0]); setView("specialistProfile"); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-            <SpecialistPhoto name={nextAppt?.users?.full_name || "د. هناء حسين"} tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={44} verified />
+            <SpecialistPhoto name={nextAppt?.users?.full_name || "د. هناء حسين"} tint={C.purple} photo="/specialists/hanaa-hussein.jpg" gender="female" size={44} verified />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>{nextAppt ? `${nextAppt.users?.full_name || "مختص"} — جلسة` : "د. هناء حسين — جلسة نفسية"}</div>
               <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 2 }}>
@@ -2295,7 +2308,7 @@ function SpecialistProfileScreen({ ctx }) {
       <div style={{ padding: "0 6px" }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
-            <div style={{ border: "4px solid #fff", borderRadius: 22, boxShadow: C.shadow }}><SpecialistPhoto name={sp.name} size={82} tint={sp.tint} photo={sp.photo} verified /></div>
+            <div style={{ border: "4px solid #fff", borderRadius: 22, boxShadow: C.shadow }}><SpecialistPhoto name={sp.name} size={82} tint={sp.tint} photo={sp.photo} gender={sp.gender || "female"} verified /></div>
             <div style={{ paddingBottom: 6 }}>
               <div style={{ fontWeight: 800, fontSize: 17, fontFamily: DISPLAY, display: "flex", alignItems: "center", gap: 5 }}>{sp.name}<ShieldCheck size={14} color={C.blue} /></div>
               <div style={{ fontSize: 12, color: C.textDim }}>{CATEGORY_MAP[sp.cat].label}</div>
@@ -2422,7 +2435,7 @@ function SpecialistsScreen({ ctx }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((s, i) => (
           <Card key={s.id} hover onClick={() => { ctx.setActiveSpecialist(s); ctx.setView("specialistProfile"); }} className="ss-fadeUp" style={{ display: "flex", alignItems: "center", gap: 12, animationDelay: `${i * 0.05}s` }}>
-            <SpecialistPhoto name={s.name} size={48} tint={s.tint} photo={s.photo} verified />
+            <SpecialistPhoto name={s.name} size={48} tint={s.tint} photo={s.photo} gender={s.gender || "female"} verified />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>{s.name}</div>
               <div style={{ fontSize: 11.5, color: C.textDim }}>{CATEGORY_MAP[s.cat].label} · {s.years} سنوات خبرة</div>
@@ -2930,7 +2943,7 @@ function ChatScreen({ ctx }) {
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.borderSoft}` }}>
         <IconBtn icon={ArrowRight} tone="ghost" onClick={() => ctx.setView("messages")} />
-        <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={40} verified />
+        <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" gender="female" size={40} verified />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 13.5 }}>د. هناء حسين</div>
           <div style={{ fontSize: 10.5, color: C.green }}>{typing ? "تكتب الآن…" : "● متصلة الآن"}</div>
@@ -4218,7 +4231,7 @@ function BookingScreen({ ctx }) {
 
         <Card style={{ textAlign: "start", marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.borderSoft}` }}>
-            <SpecialistPhoto name={sp.name} size={44} tint={sp.tint} photo={sp.photo} verified />
+            <SpecialistPhoto name={sp.name} size={44} tint={sp.tint} photo={sp.photo} gender={sp.gender || "female"} verified />
             <div><div style={{ fontWeight: 700, fontSize: 13.5 }}>{sp.name}</div><div style={{ fontSize: 11, color: C.textDim }}>{CATEGORY_MAP[sp.cat].label}</div></div>
           </div>
           <Row2 icon={type === "video" ? Video : MapPin} label="نوع الاستشارة" value={type === "video" ? "مكالمة فيديو" : "حضوري بالعيادة"} />
@@ -4428,9 +4441,14 @@ function SearchScreen({ ctx }) {
   return (
     <div>
       <div style={{ position: "relative", marginBottom: 18 }}>
-        <Search size={16} color={C.textFaint} style={{ position: "absolute", insetInlineStart: 15, top: "50%", transform: "translateY(-50%)" }} />
+        <Search size={16} color={C.blue} style={{ position: "absolute", insetInlineStart: 15, top: "50%", transform: "translateY(-50%)" }} />
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} onBlur={() => commitSearch(q)} onKeyDown={(e) => e.key === "Enter" && commitSearch(q)}
-          placeholder="ابحث عن مختص، دورة، بودكاست، منشور…" style={{ width: "100%", background: C.bgSoft, border: `1.6px solid ${C.blue}`, borderRadius: 100, padding: "13px 40px 13px 16px", fontSize: 14, boxSizing: "border-box" }} />
+          placeholder="ابحث عن مختص، دورة، بودكاست، منشور…" style={{ width: "100%", background: "#fff", border: `1.6px solid ${C.blue}`, borderRadius: 100, padding: q ? "13px 40px 13px 40px" : "13px 40px 13px 16px", fontSize: 14, boxSizing: "border-box", boxShadow: `0 4px 16px -6px ${C.blue}40` }} />
+        {q && (
+          <button onClick={() => setQ("")} style={{ position: "absolute", insetInlineEnd: 12, top: "50%", transform: "translateY(-50%)", background: C.bgSofter, border: "none", borderRadius: "50%", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <X size={12} color={C.textDim} />
+          </button>
+        )}
       </div>
       {!q && (
         <div>
@@ -5379,13 +5397,13 @@ function VideoCallScreen({ ctx }) {
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
         {phase === "waiting" ? (
           <div className="ss-fadeUp" style={{ textAlign: "center" }}>
-            <div className="ss-float" style={{ marginBottom: 18 }}><SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={96} verified /></div>
+            <div className="ss-float" style={{ marginBottom: 18 }}><SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" gender="female" size={96} verified /></div>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>بانتظار انضمام د. هناء حسين…</div>
             <div style={{ fontSize: 12, color: "#8B98A3" }}>سيبدأ الاتصال تلقائيًا فور دخولها</div>
           </div>
         ) : (
           <div className="ss-fade" style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #1A2226, #0F1417)" }}>
-            <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={120} verified />
+            <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" gender="female" size={120} verified />
           </div>
         )}
         {/* self-view */}
