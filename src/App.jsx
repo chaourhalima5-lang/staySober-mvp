@@ -10,7 +10,7 @@ import {
   LogOut, Trash2, ShieldCheck, Smartphone, Facebook, Instagram, Linkedin,
   Youtube, Twitter, Edit3, MoreHorizontal, Sparkles, Target,
   Scissors, Code2, Palette, ShoppingBag, Languages, Megaphone, ChefHat, Wrench, Hammer,
-  FileText, File, MapPinned, Volume2, WifiOff, RefreshCw, Sun, Image as ImageIcon,
+  FileText, File, MapPinned, Volume2, WifiOff, RefreshCw, Sun, Image as ImageIcon, Scale, UserPlus, ClipboardList,
 } from "lucide-react";
 import {
   RadialBarChart, RadialBar, LineChart, Line, BarChart, Bar, XAxis, YAxis,
@@ -414,19 +414,19 @@ const SPECIALISTS = [
   { id: "sp1", name: "د. هناء حسين", cat: "psych", years: 9, patients: 214, rating: 4.9, price: "3,500 دج", successRate: 91,
     bio: "طبيبة نفسية ومختصة في علاج اضطرابات الإدمان، أعمل على بناء خطط علاجية فردية تراعي الجانب الاجتماعي والمهني للمتعافي.",
     education: "دكتوراه في الطب النفسي — جامعة الجزائر", languages: ["العربية", "الفرنسية", "الإنجليزية"],
-    certs: ["اعتماد وزارة الصحة", "تخصص إضافي في علاج الإدمان"], tint: C.purple, photo: "/specialists/hanaa-hussein.jpg" },
+    certs: ["اعتماد وزارة الصحة", "تخصص إضافي في علاج الإدمان"], tint: C.purple, photo: "/specialists/hanaa-hussein.jpg", gender: "female" },
   { id: "sp2", name: "كريم بلحاج", cat: "coach", years: 5, patients: 132, rating: 4.8, price: "2,200 دج", successRate: 87,
     bio: "مدرب رياضي متخصص في برامج إعادة البناء البدني أثناء التعافي، يركّز على الانضباط والاستمرارية.",
     education: "ليسانس علوم وتقنيات النشاطات البدنية والرياضية", languages: ["العربية", "الفرنسية"],
-    certs: ["شهادة تدريب معتمدة", "تخصص لياقة علاجية"], tint: C.amber, photo: "/specialists/karim-belhadj.jpg" },
+    certs: ["شهادة تدريب معتمدة", "تخصص لياقة علاجية"], tint: C.amber, photo: "/specialists/karim-belhadj.jpg", gender: "male" },
   { id: "sp3", name: "نادية شريف", cat: "nutrition", years: 6, patients: 98, rating: 4.7, price: "2,000 دج", successRate: 89,
     bio: "أخصائية تغذية علاجية، أساعد المتعافين على استعادة توازن جسدي يدعم استقرار المزاج.",
     education: "ماستر في التغذية العلاجية — جامعة وهران", languages: ["العربية", "الفرنسية"],
-    certs: ["اعتماد وزارة الصحة", "دبلوم تغذية سريرية"], tint: C.green, photo: "/specialists/nadia-cherif.jpg" },
+    certs: ["اعتماد وزارة الصحة", "دبلوم تغذية سريرية"], tint: C.green, photo: "/specialists/nadia-cherif.jpg", gender: "female" },
   { id: "sp4", name: "د. سامي براهيمي", cat: "addiction", years: 12, patients: 340, rating: 4.9, price: "4,000 دج", successRate: 93,
     bio: "مختص إدمان بخبرة 12 سنة، رائد العلاج الجماعي داخل StaySober.",
     education: "دكتوراه في علم النفس السريري — جامعة قسنطينة", languages: ["العربية", "الفرنسية", "الإنجليزية"],
-    certs: ["اعتماد وزارة الصحة", "شهادة دولية في العلاج الجماعي"], tint: C.blue, photo: "/specialists/sami-brahimi.jpg" },
+    certs: ["اعتماد وزارة الصحة", "شهادة دولية في العلاج الجماعي"], tint: C.blue, photo: "/specialists/sami-brahimi.jpg", gender: "male" },
 ];
 
 const COURSES = [
@@ -687,23 +687,34 @@ function Avatar({ name, size = 42, tint, verified }) {
 /* Professional headshot placeholder for specialists — until real photos are provided.
    Deliberately distinct from the initials-Avatar used for regular users: a soft
    gradient frame with a clean bust silhouette reads as "photo pending", not "user icon". */
-function SpecialistPhoto({ name, size = 64, tint = C.blue, verified, photo }) {
+function SpecialistPhoto({ name, size = 64, tint = C.blue, verified, photo, gender = "female" }) {
   const [imgFailed, setImgFailed] = useState(false);
   const showRealPhoto = photo && !imgFailed;
   return (
     <div style={{ position: "relative", flex: "none" }}>
       <div style={{
         width: size, height: size, borderRadius: size * 0.28, flex: "none", position: "relative", overflow: "hidden",
-        background: `linear-gradient(160deg, ${tint}22, ${tint}0D)`, border: `1px solid ${tint}2A`,
-        display: "flex", alignItems: "flex-end", justifyContent: "center",
+        background: `linear-gradient(160deg, ${tint}20, ${tint}0A)`, border: `1px solid ${tint}28`,
+        display: "flex", alignItems: "flex-end", justifyContent: "center", boxShadow: `inset 0 -${size * 0.1}px ${size * 0.2}px ${tint}12`,
       }}>
         {showRealPhoto ? (
           <img src={photo} alt={name} onError={() => setImgFailed(true)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : gender === "female" ? (
+          // Professional silhouette with hijab drape — culturally appropriate default
+          <svg width={size * 0.86} height={size * 0.86} viewBox="0 0 100 100" style={{ marginBottom: -size * 0.02 }}>
+            <path d="M50 12c-15 0-24 12-24 26 0 8 3 14 6 18-14 5-22 17-24 34a2 2 0 002 2h80a2 2 0 002-2c-2-17-10-29-24-34 3-4 6-10 6-18 0-14-9-26-24-26z" fill={tint} opacity=".16" />
+            <circle cx="50" cy="42" r="16" fill={tint} opacity=".92" />
+            <path d="M50 14c-13 0-22 10-23 23-1 9 2 16 5 20-2 1-4 2-6 4 3 3 8 5 24 5s21-2 24-5c-2-2-4-3-6-4 3-4 6-11 5-20-1-13-10-23-23-23z" fill={tint} opacity=".92" />
+            <path d="M8 96c2-19 12-32 28-37 4 3 9 5 14 5s10-2 14-5c16 5 26 18 28 37" fill={tint} opacity=".92" />
+            <path d="M38 66c4 3 8 4 12 4s8-1 12-4v6c-4 3-8 4-12 4s-8-1-12-4z" fill="#fff" opacity=".8" />
+          </svg>
         ) : (
-        <svg width={size * 0.72} height={size * 0.72} viewBox="0 0 100 100" style={{ marginBottom: -size * 0.06 }}>
-          <circle cx="50" cy="36" r="20" fill={tint} opacity=".85" />
-          <path d="M12 98c0-24 17-40 38-40s38 16 38 40" fill={tint} opacity=".85" />
-        </svg>
+          // Professional silhouette, male — subtle coat-collar detail
+          <svg width={size * 0.78} height={size * 0.78} viewBox="0 0 100 100" style={{ marginBottom: -size * 0.04 }}>
+            <circle cx="50" cy="34" r="19" fill={tint} opacity=".9" />
+            <path d="M10 98c0-23 16-39 40-39s40 16 40 39" fill={tint} opacity=".9" />
+            <path d="M38 62l12 10 12-10v8c-4 3-8 5-12 5s-8-2-12-5z" fill="#fff" opacity=".75" />
+          </svg>
         )}
       </div>
       {verified && (
@@ -718,12 +729,63 @@ function SpecialistPhoto({ name, size = 64, tint = C.blue, verified, photo }) {
 /* Layered "cover art" for podcast episodes and courses — a gradient + subtle
    geometric pattern + icon, so cards read as designed artwork rather than a
    flat color tile repeated everywhere. */
+function LifestyleIllustration({ type, tint = C.blue, radius = 16 }) {
+  const scenes = {
+    // Two seated figures facing each other — individual therapy session
+    therapy: (
+      <g>
+        <circle cx="35" cy="34" r="9" fill={tint} opacity=".95" />
+        <path d="M20 68c0-10 7-17 15-17s15 7 15 17" fill={tint} opacity=".95" />
+        <circle cx="68" cy="38" r="7.5" fill={tint} opacity=".55" />
+        <path d="M55 68c0-9 6-15 13-15s13 6 13 15" fill={tint} opacity=".55" />
+        <path d="M46 50c3 2 5 2 8 0" stroke="#fff" strokeWidth="2.4" fill="none" strokeLinecap="round" opacity=".8" />
+      </g>
+    ),
+    // Circle of small figures — group support session
+    group: (
+      <g>
+        {[[22, 40, 1], [42, 26, .8], [62, 40, .95], [50, 58, .7], [30, 60, .85]].map(([cx, cy, o], i) => (
+          <g key={i}>
+            <circle cx={cx} cy={cy - 8} r="6.5" fill={tint} opacity={o} />
+            <path d={`M${cx - 9} ${cy + 12}c0-7 4-12 9-12s9 5 9 12`} fill={tint} opacity={o} />
+          </g>
+        ))}
+      </g>
+    ),
+    // Dynamic running figure with motion lines — sports during recovery
+    sports: (
+      <g>
+        <circle cx="46" cy="22" r="7" fill={tint} opacity=".95" />
+        <path d="M46 30l-4 16-14 10M46 30l10 12 12-4M42 46l-8 20M52 42l6 18" stroke={tint} strokeWidth="6" strokeLinecap="round" fill="none" opacity=".95" />
+        <path d="M10 70h20M14 78h16M8 62h14" stroke={tint} strokeWidth="3" strokeLinecap="round" opacity=".35" />
+      </g>
+    ),
+    // Figure at a desk with a laptop and a small graduation cap — vocational training
+    learning: (
+      <g>
+        <circle cx="38" cy="26" r="8" fill={tint} opacity=".95" />
+        <path d="M24 56c0-9 6-16 14-16s14 7 14 16" fill={tint} opacity=".95" />
+        <rect x="46" y="48" width="30" height="20" rx="2.5" fill={tint} opacity=".55" />
+        <rect x="49" y="51" width="24" height="13" rx="1.5" fill="#fff" opacity=".5" />
+        <path d="M61 34l14-5 14 5-14 5z" fill={tint} opacity=".8" />
+        <path d="M68 38v7c2 2 8 2 10 0v-7" stroke={tint} strokeWidth="2" fill="none" opacity=".8" />
+      </g>
+    ),
+  };
+  return (
+    <div style={{ width: "100%", height: "100%", minHeight: "100%", borderRadius: radius, position: "relative", overflow: "hidden", background: `linear-gradient(155deg, ${tint}18, ${tint}08)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <svg viewBox="0 0 86 86" width="74%" height="74%" preserveAspectRatio="xMidYMid meet">
+        {scenes[type] || scenes.therapy}
+      </svg>
+    </div>
+  );
+}
 function CoverArt({ icon: Icon, tint = C.blue, size = 64, w, h, radius, pattern = "dots" }) {
   const r = radius ?? size * 0.26;
   const pid = useRef(`cv-${Math.random().toString(36).slice(2, 8)}`).current;
   const width = w ?? size, height = h ?? size;
   return (
-    <div style={{ width, height, borderRadius: r, position: "relative", overflow: "hidden", flex: "none", background: `linear-gradient(150deg, ${tint}, ${C.blueDeep})` }}>
+    <div style={{ width, height, borderRadius: r, position: "relative", overflow: "hidden", flex: "none", background: `linear-gradient(155deg, ${tint}, ${C.blueDeep})` }}>
       <svg width="100%" height="100%" style={{ position: "absolute", inset: 0, opacity: .5 }}>
         <defs>
           <pattern id={pid} width={size * 0.22} height={size * 0.22} patternUnits="userSpaceOnUse">
@@ -734,9 +796,11 @@ function CoverArt({ icon: Icon, tint = C.blue, size = 64, w, h, radius, pattern 
         </defs>
         <rect width="100%" height="100%" fill={`url(#${pid})`} />
       </svg>
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(255,255,255,.16), transparent 55%)" }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(150deg, rgba(255,255,255,.22) 0%, transparent 45%, rgba(0,0,0,.12) 100%)" }} />
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon size={size * 0.4} color="#fff" strokeWidth={1.8} />
+        <div style={{ width: size * 0.56, height: size * 0.56, borderRadius: size * 0.18, background: "rgba(255,255,255,.18)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.3)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(0,0,0,.12)" }}>
+          <Icon size={size * 0.28} color="#fff" strokeWidth={1.8} />
+        </div>
       </div>
     </div>
   );
@@ -1033,18 +1097,27 @@ const SUCCESS_METRICS = [
   { label: "يفيدون بتحسّن في العلاقات الأسرية", value: 92, sub: "بعد 6 أشهر من استخدام المنصة" },
 ];
 const LANDING_FEATURES = [
-  { icon: Users, title: "ملف رعاية موحّد", body: "معالجك النفسي ومدربك الرياضي وأخصائية التغذية يرون تقدّمك في مكان واحد، دون تكرار أو انقطاع.", tint: C.blue },
-  { icon: AlertTriangle, title: "دعم فوري وقت الأزمة", body: "زر طوارئ يصلك بخط مساعدة أو معالجك أو شخص تثق به خلال ثوانٍ، أينما كنت داخل التطبيق.", tint: C.ember },
-  { icon: GraduationCap, title: "اندماج مهني حقيقي", body: "تكوينات في البرمجة والتصميم والحرف واللغات — مهارات فعلية تفتح بابًا جديدًا في سوق العمل.", tint: C.amber },
-  { icon: ShieldCheck, title: "خصوصية بلا تنازل", body: "سرّية جلساتك محفوظة حتى من وليّ أمرك، وفق القانون 18-07 لحماية المعطيات الشخصية.", tint: C.green },
-  { icon: Building2, title: "شراكات مؤسساتية", body: "تغطية جماعية للموظفين عبر بوابة مخصّصة للشركات والجمعيات الشريكة.", tint: C.purple },
-  { icon: Users, title: "مجتمع داعم", body: "مساحة آمنة لمشاركة التجارب وتشجيع الآخرين، دون كشف أي معلومة حساسة.", tint: C.blueDeep },
+  { icon: Video, title: "جلسات علاج هجينة", body: "حضورية وعن بعد — علاج نفسي يناسب ظروف كل مستفيد.", tint: C.purple },
+  { icon: Apple, title: "برامج تغذية سليمة", body: "خطط غذائية يشرف عليها مختصون لدعم رحلة التعافي.", tint: C.green },
+  { icon: Dumbbell, title: "نشاط رياضي تأهيلي", body: "برامج رياضية موجهة لتحسين الصحة الجسدية والنفسية.", tint: C.amber },
+  { icon: GraduationCap, title: "تكوين تعليمي ومهني", body: "دورات عن بعد لاكتساب مهارات جديدة والاستعداد لسوق العمل.", tint: C.blue },
+  { icon: Users, title: "الدعم الجماعي", body: "لقاءات آمنة يشرف عليها مختصون لتبادل الخبرة والتحفيز.", tint: C.blueDeep },
+  { icon: Stethoscope, title: "متابعة متعددة التخصصات", body: "معالجك ومدربك وأخصائية التغذية يرون تقدّمك في ملف واحد.", tint: C.purple },
+  { icon: ShieldCheck, title: "حماية البيانات", body: "بياناتك مشفّرة، وفق القانون 18-07 لحماية المعطيات الشخصية.", tint: C.green },
+  { icon: Scale, title: "متابعة قضائية عند الحاجة", body: "دعم ومتابعة الجوانب القانونية المرتبطة برحلة التعافي عند الضرورة.", tint: C.ember },
+  { icon: Globe, title: "تطبيق متعدد اللغات", body: "العربية والفرنسية والإنجليزية — بنية جاهزة تناسب فريقك الطبي.", tint: C.blue },
+  { icon: Bell, title: "إشعارات ذكية", body: "تنبيهات لحظية للرسائل والمواعيد ونشاط المجتمع.", tint: C.amber },
+  { icon: Activity, title: "مؤشرات التقدم", body: "تتبّع يومي لمزاجك وخطواتك نحو التعافي بوضوح.", tint: C.blueDeep },
+  { icon: Users, title: "مجتمع داعم", body: "مساحة آمنة لمشاركة التجارب دون كشف أي معلومة حساسة.", tint: C.purple },
 ];
 const HOW_IT_WORKS = [
-  { n: "1", title: "سجّل واختر صفتك", body: "10 فئات مختلفة — من المستفيد إلى المؤسسة — كل واحدة بنموذج تسجيل مخصص." },
-  { n: "2", title: "تواصل مع فريق رعايتك", body: "احجز مع مختصين معتمدين، وابدأ بناء ملفك الموحّد." },
-  { n: "3", title: "تابع تقدّمك يوميًا", body: "سجّل شعورك، راقب مؤشراتك، واحصل على دعم فوري عند الحاجة." },
-  { n: "4", title: "اندمج من جديد", body: "اكتسب مهارة سوقية، وابنِ حياة مهنية واجتماعية مستقرة." },
+  { n: "1", icon: UserPlus, title: "إنشاء الحساب", body: "سجّل بصفتك المناسبة خلال دقائق." },
+  { n: "2", icon: ClipboardList, title: "التقييم الأولي", body: "تقييم شامل لفهم احتياجاتك بدقة." },
+  { n: "3", icon: Target, title: "تحديد الخطة العلاجية", body: "خطة فردية يضعها فريقك العلاجي." },
+  { n: "4", icon: Video, title: "الجلسات العلاجية والمتابعة", body: "جلسات حضورية وعن بعد، ومتابعة مستمرة." },
+  { n: "5", icon: Dumbbell, title: "برامج التغذية والنشاط الرياضي", body: "دعم جسدي يواكب تعافيك النفسي." },
+  { n: "6", icon: GraduationCap, title: "التكوين التعليمي والمهني", body: "مهارات جديدة تفتح أبوابًا حقيقية." },
+  { n: "7", icon: Briefcase, title: "الاندماج المهني بعد التعافي", body: "وظيفة واستقلال مهني حقيقي." },
 ];
 
 function Accordion({ items }) {
@@ -1133,7 +1206,7 @@ function LandingScreen({ ctx }) {
           </div>
         </div>
         <div className="ss-scaleIn" style={{ borderRadius: 28, overflow: "hidden", boxShadow: C.shadowLg, border: `1px solid ${C.border}` }}>
-          <img src={TEAM_IMG} alt="فريق الرعاية StaySober" style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 420 }} />
+          <img src="/images/hero-integrated-care.png" alt="StaySober — رعاية متكاملة" style={{ width: "100%", display: "block", objectFit: "contain", maxHeight: 420 }} />
         </div>
       </Section>
 
@@ -1166,22 +1239,30 @@ function LandingScreen({ ctx }) {
         </div>
       </Section>
 
-      {/* real-life recovery moments — reinforces the emotional mission with genuine scenes, not generic decoration */}
+      {/* services slider — real StaySober photography, one card per core service */}
       <Section style={{ padding: "20px 20px 70px" }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: C.blue, letterSpacing: ".06em", textTransform: "uppercase" }}>رحلة حقيقية</div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.blue, letterSpacing: ".06em", textTransform: "uppercase" }}>خدماتنا</div>
           <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24, marginTop: 8 }}>من أول جلسة إلى أول يوم عمل</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 2 : 4},1fr)`, gap: 14 }}>
+        <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
           {[
-            { src: "/lifestyle/therapy-session.jpg", label: "جلسة علاج فردية" },
-            { src: "/lifestyle/group-support.jpg", label: "دعم جماعي" },
-            { src: "/lifestyle/sports-recovery.jpg", label: "نشاط رياضي" },
-            { src: "/lifestyle/learning-skill.jpg", label: "تكوين مهني" },
-          ].map((img) => (
-            <div key={img.src} style={{ borderRadius: 16, overflow: "hidden", position: "relative", aspectRatio: "1", background: C.bgSofter }}>
-              <img src={img.src} alt={img.label} onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              <div style={{ position: "absolute", bottom: 0, insetInlineStart: 0, insetInlineEnd: 0, background: "linear-gradient(0deg, rgba(0,0,0,.55), transparent)", padding: "20px 10px 8px", color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" }}>{img.label}</div>
+            { src: "/images/service-hybrid-therapy.png", title: "جلسات علاج هجينة (حضورية وعن بعد)", body: "جلسات علاج نفسي تجمع بين الحضور المباشر والاستشارات عبر الفيديو بما يناسب احتياجات كل مستفيد." },
+            { src: "/images/service-nutrition.jpeg", title: "برامج تغذية سليمة", body: "خطط غذائية صحية يشرف عليها مختصو التغذية لدعم رحلة التعافي وتحسين نمط الحياة والمتابعة الغذائية المستمرة." },
+            { src: "/images/service-sports.jpeg", title: "نشاط رياضي تأهيلي", body: "برامج رياضية موجهة يشرف عليها مدربون مختصون للمساعدة على تحسين الصحة الجسدية والنفسية." },
+            { src: "/images/service-vocational-training.png", title: "تكوين تعليمي ومهني", body: "دورات تعليمية ومهنية عن بعد تساعد المستفيد على اكتساب مهارات جديدة والاستعداد لسوق العمل." },
+            { src: "/images/service-group-support.png", title: "الدعم الجماعي", body: "لقاءات جماعية آمنة يشرف عليها مختصون، تساعد المستفيدين على تبادل الخبرات والدعم والتحفيز." },
+            { src: "/images/hero-integrated-care.png", title: "رعاية متكاملة في مكان واحد", body: "يجتمع العلاج النفسي، النشاط الرياضي، التغذية، التكوين المهني، والمتابعة المستمرة داخل منصة رقمية واحدة." },
+            { src: "/images/service-career-journey.png", title: "اندماج مهني حقيقي بعد التعافي", body: "من التعافي، إلى اكتساب المهارات، ثم الحصول على وظيفة واستقلال مهني حقيقي." },
+          ].map((s) => (
+            <div key={s.title} style={{ flex: `0 0 ${isMobile ? "78%" : "31%"}`, scrollSnapAlign: "start", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden", boxShadow: C.shadow }}>
+              <div style={{ width: "100%", aspectRatio: "4/3", background: C.bgSofter, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img src={s.src} alt={s.title} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              </div>
+              <div style={{ padding: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{s.title}</div>
+                <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.8 }}>{s.body}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -1193,12 +1274,18 @@ function LandingScreen({ ctx }) {
           <div style={{ fontSize: 12, fontWeight: 800, color: C.blue, letterSpacing: ".06em", textTransform: "uppercase" }}>رحلتك معنا</div>
           <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24, marginTop: 8 }}>كيف تعمل المنصة</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 1 : 4},1fr)`, gap: 20 }}>
-          {HOW_IT_WORKS.map((s) => (
-            <div key={s.n} style={{ textAlign: "center" }}>
-              <div style={{ width: 46, height: 46, borderRadius: "50%", background: `linear-gradient(135deg, ${C.blueBright}, ${C.blueDeep})`, color: "#fff", fontWeight: 800, fontFamily: DISPLAY, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>{s.n}</div>
-              <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6 }}>{s.title}</div>
-              <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.75, maxWidth: 220, margin: "0 auto" }}>{s.body}</div>
+        <div style={{ maxWidth: 480, margin: "0 auto", position: "relative" }}>
+          <div style={{ position: "absolute", insetInlineStart: 23, top: 24, bottom: 24, width: 2, background: C.border }} />
+          {HOW_IT_WORKS.map((s, i) => (
+            <div key={s.n} style={{ display: "flex", gap: 18, marginBottom: i === HOW_IT_WORKS.length - 1 ? 0 : 30, position: "relative" }}>
+              <div style={{ width: 48, height: 48, borderRadius: "50%", background: `linear-gradient(135deg, ${C.blueBright}, ${C.blueDeep})`, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", boxShadow: C.shadow, zIndex: 1 }}>
+                <s.icon size={20} />
+              </div>
+              <div style={{ paddingTop: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: C.blue, marginBottom: 3 }}>الخطوة {s.n}</div>
+                <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>{s.title}</div>
+                <div style={{ fontSize: 12.5, color: C.textDim, lineHeight: 1.75 }}>{s.body}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -1369,8 +1456,8 @@ function SplashScreen({ ctx }) {
    ========================================================================= */
 const ONBOARD_SLIDES = [
   { photo: TEAM_IMG, title: "رعاية متكاملة في مكان واحد", body: "نفسية، رياضية، وغذائية — فريق واحد يتابعك بملف مشترك دون انقطاع بين التخصصات.", tint: C.blue },
-  { photo: "/lifestyle/learning-skill.jpg", title: "اندماج مهني حقيقي بعد التعافي", body: "تكوينات في البرمجة، التصميم، الحرف، واللغات — مهارات تفتح لك بابًا جديدًا في سوق العمل.", tint: C.amber },
-  { icon: ShieldCheck, title: "خصوصيتك أولوية مطلقة", body: "بياناتك مشفّرة، وسرّية جلساتك محفوظة حتى من أولياء الأمور — وفق القانون 18-07.", tint: C.green },
+  { illustration: "learning", title: "اندماج مهني حقيقي بعد التعافي", body: "تكوينات في البرمجة، التصميم، الحرف، واللغات — مهارات تفتح لك بابًا جديدًا في سوق العمل.", tint: C.amber },
+  { photo: "/images/privacy-security.jpeg", title: "خصوصيتك أولوية مطلقة", body: "بياناتك مشفّرة، وسرّية جلساتك محفوظة حتى من أولياء الأمور — وفق القانون 18-07.", tint: C.green },
 ];
 function OnboardingScreen({ ctx }) {
   const [i, setI] = useState(0);
@@ -1384,7 +1471,11 @@ function OnboardingScreen({ ctx }) {
       <div key={i} className="ss-scaleIn" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px", textAlign: "center" }}>
         {slide.photo ? (
           <div style={{ width: 220, height: 220, borderRadius: 28, overflow: "hidden", marginBottom: 26, boxShadow: C.shadowLg, border: `1px solid ${C.border}`, background: `${slide.tint}14` }}>
-            <img src={slide.photo} alt={slide.title} onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+            <img src={slide.photo} alt={slide.title} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+          </div>
+        ) : slide.illustration ? (
+          <div style={{ width: 220, height: 220, borderRadius: 28, overflow: "hidden", marginBottom: 26, boxShadow: C.shadowLg, border: `1px solid ${C.border}` }}>
+            <LifestyleIllustration type={slide.illustration} tint={slide.tint} radius={28} />
           </div>
         ) : (
           <div style={{ width: 120, height: 120, borderRadius: 32, background: `${slide.tint}14`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 30 }}>
@@ -2066,7 +2157,7 @@ function HomeScreen({ ctx }) {
       <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10 }}>مقترح لك</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
         <Card hover onClick={() => { ctx.setActiveSpecialist(suggestedSpecialist || SPECIALISTS[2]); setView("specialistProfile"); }} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <SpecialistPhoto name={(suggestedSpecialist || SPECIALISTS[2]).name} tint={(suggestedSpecialist || SPECIALISTS[2]).tint} photo={(suggestedSpecialist || SPECIALISTS[2]).photo} size={40} verified />
+          <SpecialistPhoto name={(suggestedSpecialist || SPECIALISTS[2]).name} tint={(suggestedSpecialist || SPECIALISTS[2]).tint} photo={(suggestedSpecialist || SPECIALISTS[2]).photo} gender={(suggestedSpecialist || SPECIALISTS[2]).gender || "female"} size={40} verified />
           <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 12 }}>{(suggestedSpecialist || SPECIALISTS[2]).name}</div><div style={{ fontSize: 10.5, color: C.textDim }}>{CATEGORY_MAP[DB_SPECIALTY_TO_APP_CAT[(suggestedSpecialist || {}).cat] || "nutrition"]?.label || "مختص"} — لم تحجزي معه بعد</div></div>
           <ChevronLeft size={15} color={C.textFaint} />
         </Card>
@@ -2103,7 +2194,7 @@ function HomeScreen({ ctx }) {
       ) : (
         <Card style={{ display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
           <button onClick={() => { ctx.setActiveSpecialist(SPECIALISTS[0]); setView("specialistProfile"); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-            <SpecialistPhoto name={nextAppt?.users?.full_name || "د. هناء حسين"} tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={44} verified />
+            <SpecialistPhoto name={nextAppt?.users?.full_name || "د. هناء حسين"} tint={C.purple} photo="/specialists/hanaa-hussein.jpg" gender="female" size={44} verified />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>{nextAppt ? `${nextAppt.users?.full_name || "مختص"} — جلسة` : "د. هناء حسين — جلسة نفسية"}</div>
               <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 2 }}>
@@ -2295,7 +2386,7 @@ function SpecialistProfileScreen({ ctx }) {
       <div style={{ padding: "0 6px" }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
-            <div style={{ border: "4px solid #fff", borderRadius: 22, boxShadow: C.shadow }}><SpecialistPhoto name={sp.name} size={82} tint={sp.tint} photo={sp.photo} verified /></div>
+            <div style={{ border: "4px solid #fff", borderRadius: 22, boxShadow: C.shadow }}><SpecialistPhoto name={sp.name} size={82} tint={sp.tint} photo={sp.photo} gender={sp.gender || "female"} verified /></div>
             <div style={{ paddingBottom: 6 }}>
               <div style={{ fontWeight: 800, fontSize: 17, fontFamily: DISPLAY, display: "flex", alignItems: "center", gap: 5 }}>{sp.name}<ShieldCheck size={14} color={C.blue} /></div>
               <div style={{ fontSize: 12, color: C.textDim }}>{CATEGORY_MAP[sp.cat].label}</div>
@@ -2422,7 +2513,7 @@ function SpecialistsScreen({ ctx }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((s, i) => (
           <Card key={s.id} hover onClick={() => { ctx.setActiveSpecialist(s); ctx.setView("specialistProfile"); }} className="ss-fadeUp" style={{ display: "flex", alignItems: "center", gap: 12, animationDelay: `${i * 0.05}s` }}>
-            <SpecialistPhoto name={s.name} size={48} tint={s.tint} photo={s.photo} verified />
+            <SpecialistPhoto name={s.name} size={48} tint={s.tint} photo={s.photo} gender={s.gender || "female"} verified />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>{s.name}</div>
               <div style={{ fontSize: 11.5, color: C.textDim }}>{CATEGORY_MAP[s.cat].label} · {s.years} سنوات خبرة</div>
@@ -2930,7 +3021,7 @@ function ChatScreen({ ctx }) {
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.borderSoft}` }}>
         <IconBtn icon={ArrowRight} tone="ghost" onClick={() => ctx.setView("messages")} />
-        <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={40} verified />
+        <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" gender="female" size={40} verified />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 13.5 }}>د. هناء حسين</div>
           <div style={{ fontSize: 10.5, color: C.green }}>{typing ? "تكتب الآن…" : "● متصلة الآن"}</div>
@@ -3976,14 +4067,12 @@ function RecoveryProgramsScreen({ ctx }) {
           {programs.map((p, i) => {
             const mine = enrollments.find((e) => e.program_id === p.id);
             const tint = tints[i % tints.length];
-            const programImages = ["/lifestyle/group-support.jpg", "/lifestyle/therapy-session.jpg"];
+            const programTypes = ["group", "therapy"];
             return (
               <Card key={p.id}>
                 <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 14, overflow: "hidden", flex: "none", background: `${tint}14`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <img src={programImages[i % programImages.length]} alt={p.title}
-                      onError={(e) => { e.currentTarget.style.display = "none"; }}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <div style={{ width: 56, height: 56, borderRadius: 14, overflow: "hidden", flex: "none" }}>
+                    <LifestyleIllustration type={programTypes[i % programTypes.length]} tint={tint} radius={14} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.title}</div>
@@ -4218,7 +4307,7 @@ function BookingScreen({ ctx }) {
 
         <Card style={{ textAlign: "start", marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.borderSoft}` }}>
-            <SpecialistPhoto name={sp.name} size={44} tint={sp.tint} photo={sp.photo} verified />
+            <SpecialistPhoto name={sp.name} size={44} tint={sp.tint} photo={sp.photo} gender={sp.gender || "female"} verified />
             <div><div style={{ fontWeight: 700, fontSize: 13.5 }}>{sp.name}</div><div style={{ fontSize: 11, color: C.textDim }}>{CATEGORY_MAP[sp.cat].label}</div></div>
           </div>
           <Row2 icon={type === "video" ? Video : MapPin} label="نوع الاستشارة" value={type === "video" ? "مكالمة فيديو" : "حضوري بالعيادة"} />
@@ -4428,9 +4517,14 @@ function SearchScreen({ ctx }) {
   return (
     <div>
       <div style={{ position: "relative", marginBottom: 18 }}>
-        <Search size={16} color={C.textFaint} style={{ position: "absolute", insetInlineStart: 15, top: "50%", transform: "translateY(-50%)" }} />
+        <Search size={16} color={C.blue} style={{ position: "absolute", insetInlineStart: 15, top: "50%", transform: "translateY(-50%)" }} />
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} onBlur={() => commitSearch(q)} onKeyDown={(e) => e.key === "Enter" && commitSearch(q)}
-          placeholder="ابحث عن مختص، دورة، بودكاست، منشور…" style={{ width: "100%", background: C.bgSoft, border: `1.6px solid ${C.blue}`, borderRadius: 100, padding: "13px 40px 13px 16px", fontSize: 14, boxSizing: "border-box" }} />
+          placeholder="ابحث عن مختص، دورة، بودكاست، منشور…" style={{ width: "100%", background: "#fff", border: `1.6px solid ${C.blue}`, borderRadius: 100, padding: q ? "13px 40px 13px 40px" : "13px 40px 13px 16px", fontSize: 14, boxSizing: "border-box", boxShadow: `0 4px 16px -6px ${C.blue}40` }} />
+        {q && (
+          <button onClick={() => setQ("")} style={{ position: "absolute", insetInlineEnd: 12, top: "50%", transform: "translateY(-50%)", background: C.bgSofter, border: "none", borderRadius: "50%", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <X size={12} color={C.textDim} />
+          </button>
+        )}
       </div>
       {!q && (
         <div>
@@ -5379,13 +5473,13 @@ function VideoCallScreen({ ctx }) {
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
         {phase === "waiting" ? (
           <div className="ss-fadeUp" style={{ textAlign: "center" }}>
-            <div className="ss-float" style={{ marginBottom: 18 }}><SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={96} verified /></div>
+            <div className="ss-float" style={{ marginBottom: 18 }}><SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" gender="female" size={96} verified /></div>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>بانتظار انضمام د. هناء حسين…</div>
             <div style={{ fontSize: 12, color: "#8B98A3" }}>سيبدأ الاتصال تلقائيًا فور دخولها</div>
           </div>
         ) : (
           <div className="ss-fade" style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #1A2226, #0F1417)" }}>
-            <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" size={120} verified />
+            <SpecialistPhoto name="د. هناء حسين" tint={C.purple} photo="/specialists/hanaa-hussein.jpg" gender="female" size={120} verified />
           </div>
         )}
         {/* self-view */}
