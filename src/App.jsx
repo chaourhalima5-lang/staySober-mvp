@@ -120,24 +120,6 @@ function assertSupabaseConfigured() {
 
 let sbSession = null; // { access_token, refresh_token, user, expires_at }
 
-// ============================================================================
-// TEMPORARY DIAGNOSTIC — logs every unhandled promise rejection and every
-// uncaught error to the console, with full detail. Registered once at
-// module load so it catches anything regardless of which screen is mounted
-// when it fires, including things that happen after navigating away from a
-// screen. No application logic is changed by this block.
-// ============================================================================
-if (typeof window !== "undefined") {
-  window.addEventListener("unhandledrejection", (event) => {
-    console.error("[DIAG] UNHANDLED PROMISE REJECTION:", event.reason);
-    if (event.reason?.stack) console.error("[DIAG] stack:", event.reason.stack);
-  });
-  window.addEventListener("error", (event) => {
-    console.error("[DIAG] UNCAUGHT ERROR:", event.message, "at", event.filename + ":" + event.lineno + ":" + event.colno);
-    if (event.error?.stack) console.error("[DIAG] stack:", event.error.stack);
-  });
-}
-
 async function sbRestoreSession() {
   try {
     const saved = await window.storage.get("staysober2:sbSession", false);
@@ -236,15 +218,12 @@ function sbHeaders(extra) {
 async function sbFetch(url, options) {
   let res = await fetch(url, options);
   if (res.status === 401 && sbSession?.refresh_token) {
-    console.error("[DIAG] got 401 for:", url, "— attempting token refresh");
     try {
       await sbRefreshSession(sbSession.refresh_token);
       const refreshedOptions = { ...options, headers: { ...options.headers, Authorization: `Bearer ${sbSession.access_token}` } };
       res = await fetch(url, refreshedOptions);
-      console.error("[DIAG] retry after refresh — status:", res.status, "for:", url);
     } catch (refreshErr) {
-      console.error("[DIAG] token refresh failed — full error:", refreshErr);
-      console.error("[DIAG] token refresh failed — message:", refreshErr.message, "| stack:", refreshErr.stack);
+      console.error("token refresh failed:", refreshErr.message);
       // fall through with the original 401 response — caller's normal
       // error handling takes over from here
     }
@@ -1389,8 +1368,8 @@ function SplashScreen({ ctx }) {
    ONBOARDING (3 pages, skip/next)
    ========================================================================= */
 const ONBOARD_SLIDES = [
-  { photo: true, title: "رعاية متكاملة في مكان واحد", body: "نفسية، رياضية، وغذائية — فريق واحد يتابعك بملف مشترك دون انقطاع بين التخصصات.", tint: C.blue },
-  { icon: Briefcase, title: "اندماج مهني حقيقي بعد التعافي", body: "تكوينات في البرمجة، التصميم، الحرف، واللغات — مهارات تفتح لك بابًا جديدًا في سوق العمل.", tint: C.amber },
+  { photo: TEAM_IMG, title: "رعاية متكاملة في مكان واحد", body: "نفسية، رياضية، وغذائية — فريق واحد يتابعك بملف مشترك دون انقطاع بين التخصصات.", tint: C.blue },
+  { photo: "/lifestyle/learning-skill.jpg", title: "اندماج مهني حقيقي بعد التعافي", body: "تكوينات في البرمجة، التصميم، الحرف، واللغات — مهارات تفتح لك بابًا جديدًا في سوق العمل.", tint: C.amber },
   { icon: ShieldCheck, title: "خصوصيتك أولوية مطلقة", body: "بياناتك مشفّرة، وسرّية جلساتك محفوظة حتى من أولياء الأمور — وفق القانون 18-07.", tint: C.green },
 ];
 function OnboardingScreen({ ctx }) {
@@ -1404,8 +1383,8 @@ function OnboardingScreen({ ctx }) {
       </div>
       <div key={i} className="ss-scaleIn" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px", textAlign: "center" }}>
         {slide.photo ? (
-          <div style={{ width: 220, height: 220, borderRadius: 28, overflow: "hidden", marginBottom: 26, boxShadow: C.shadowLg, border: `1px solid ${C.border}` }}>
-            <img src={TEAM_IMG} alt="فريق StaySober الطبي" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+          <div style={{ width: 220, height: 220, borderRadius: 28, overflow: "hidden", marginBottom: 26, boxShadow: C.shadowLg, border: `1px solid ${C.border}`, background: `${slide.tint}14` }}>
+            <img src={slide.photo} alt={slide.title} onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
           </div>
         ) : (
           <div style={{ width: 120, height: 120, borderRadius: 32, background: `${slide.tint}14`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 30 }}>
@@ -2762,8 +2741,7 @@ function MessagesScreen({ ctx }) {
       }));
       setConvos(results);
     } catch (err) {
-      console.error("[DIAG] conversations load failed — full error object:", err);
-      console.error("[DIAG] conversations load failed — message:", err.message, "| name:", err.name, "| stack:", err.stack);
+      console.error("conversations load failed:", err.message);
       setConvosError(err.message || "تعذّر تحميل المحادثات");
     } finally {
       setLoadingConvos(false);
@@ -2826,8 +2804,7 @@ function ChatScreen({ ctx }) {
       });
       setMsgs(rows.map((r) => ({ id: r.id, me: r.sender_id === ctx.session.id, t: r.body, seen: !!r.seen_at })));
     } catch (err) {
-      console.error("[DIAG] messages load failed — full error object:", err);
-      console.error("[DIAG] messages load failed — message:", err.message, "| name:", err.name, "| stack:", err.stack);
+      console.error("messages load failed:", err.message);
       setMsgsError(err.message || "تعذّر تحميل الرسائل السابقة");
       setMsgs([]); // honest: show an empty real conversation rather than a misleading demo one
     } finally {
@@ -2863,7 +2840,7 @@ function ChatScreen({ ctx }) {
           heartbeatTimer = setInterval(() => {
             try { socket.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: "hb" })); } catch { /* handled by onerror */ }
           }, 25000);
-        } catch (err) { console.error("[DIAG] realtime join failed — full error:", err); console.error("[DIAG] realtime join failed — message:", err.message, "| stack:", err.stack); startPollingFallback(); }
+        } catch (err) { console.error("realtime join failed:", err.message); startPollingFallback(); }
       };
       socket.onmessage = (event) => {
         if (isUnmounting) return;
@@ -2875,14 +2852,13 @@ function ChatScreen({ ctx }) {
           }
         } catch { /* ignore malformed frames rather than crash the screen */ }
       };
-      socket.onerror = (event) => { if (isUnmounting) return; console.error("[DIAG] realtime WebSocket onerror event:", event); console.error("[DIAG] socket.readyState at error:", socket.readyState); startPollingFallback(); };
+      socket.onerror = () => { if (isUnmounting) return; console.error("realtime socket error — falling back to polling"); startPollingFallback(); };
       // onclose fires on EVERY close, including our own intentional close()
       // below when this screen is left — isUnmounting distinguishes the two,
       // preventing a zombie polling timer from outliving the component.
-      socket.onclose = (event) => { console.error("[DIAG] realtime WebSocket onclose — code:", event.code, "| reason:", event.reason, "| wasClean:", event.wasClean, "| isUnmounting:", isUnmounting); if (!usingFallback && !isUnmounting) startPollingFallback(); };
+      socket.onclose = () => { if (!usingFallback && !isUnmounting) startPollingFallback(); };
     } catch (err) {
-      console.error("[DIAG] realtime setup failed — full error:", err);
-      console.error("[DIAG] realtime setup failed — message:", err.message, "| stack:", err.stack);
+      console.error("realtime setup failed:", err.message);
       startPollingFallback();
     }
     return () => {
@@ -2903,8 +2879,7 @@ function ChatScreen({ ctx }) {
       try {
         await sbInsert("messages", [{ conversation_id: conversationId, sender_id: ctx.session.id, body }]);
       } catch (err) {
-        console.error("[DIAG] message insert failed — full error object:", err);
-        console.error("[DIAG] message insert failed — message:", err.message, "| stack:", err.stack);
+        console.error("message insert failed:", err.message);
         setMsgs((m) => m.map((x) => x.id === localId ? { ...x, failed: true } : x));
       }
     } else {
@@ -3125,7 +3100,7 @@ function CommunityScreen({ ctx }) {
           heartbeatTimer = setInterval(() => {
             try { socket.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: "hb" })); } catch { /* handled by onerror */ }
           }, 25000);
-        } catch (err) { console.error("[DIAG] realtime join failed — full error:", err); console.error("[DIAG] realtime join failed — message:", err.message, "| stack:", err.stack); startPollingFallback(); }
+        } catch (err) { console.error("realtime join failed:", err.message); startPollingFallback(); }
       };
       socket.onmessage = (event) => {
         if (isUnmounting) return;
@@ -3137,11 +3112,10 @@ function CommunityScreen({ ctx }) {
           }
         } catch { /* ignore malformed frames rather than crash the screen */ }
       };
-      socket.onerror = (event) => { if (isUnmounting) return; console.error("[DIAG] realtime WebSocket onerror event:", event); console.error("[DIAG] socket.readyState at error:", socket.readyState); startPollingFallback(); };
-      socket.onclose = (event) => { console.error("[DIAG] realtime WebSocket onclose — code:", event.code, "| reason:", event.reason, "| wasClean:", event.wasClean, "| isUnmounting:", isUnmounting); if (!usingFallback && !isUnmounting) startPollingFallback(); };
+      socket.onerror = () => { if (isUnmounting) return; console.error("realtime socket error — falling back to polling"); startPollingFallback(); };
+      socket.onclose = () => { if (!usingFallback && !isUnmounting) startPollingFallback(); };
     } catch (err) {
-      console.error("[DIAG] realtime setup failed — full error:", err);
-      console.error("[DIAG] realtime setup failed — message:", err.message, "| stack:", err.stack);
+      console.error("realtime setup failed:", err.message);
       startPollingFallback();
     }
 
@@ -4002,10 +3976,15 @@ function RecoveryProgramsScreen({ ctx }) {
           {programs.map((p, i) => {
             const mine = enrollments.find((e) => e.program_id === p.id);
             const tint = tints[i % tints.length];
+            const programImages = ["/lifestyle/group-support.jpg", "/lifestyle/therapy-session.jpg"];
             return (
               <Card key={p.id}>
                 <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-                  <CoverArt icon={Heart} tint={tint} size={56} radius={14} pattern="wave" />
+                  <div style={{ width: 56, height: 56, borderRadius: 14, overflow: "hidden", flex: "none", background: `${tint}14`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <img src={programImages[i % programImages.length]} alt={p.title}
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.title}</div>
                     <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 3 }}>{p.duration_weeks ? `${p.duration_weeks} أسابيع` : "مدة مرنة"}</div>
@@ -4568,7 +4547,7 @@ function NotificationsScreen({ ctx }) {
           heartbeatTimer = setInterval(() => {
             try { socket.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: "hb" })); } catch { /* handled by onerror */ }
           }, 25000);
-        } catch (err) { console.error("[DIAG] realtime join failed — full error:", err); console.error("[DIAG] realtime join failed — message:", err.message, "| stack:", err.stack); startPollingFallback(); }
+        } catch (err) { console.error("realtime join failed:", err.message); startPollingFallback(); }
       };
       socket.onmessage = (event) => {
         if (isUnmounting) return;
@@ -4581,11 +4560,10 @@ function NotificationsScreen({ ctx }) {
           }
         } catch { /* ignore malformed frames rather than crash the screen */ }
       };
-      socket.onerror = (event) => { if (isUnmounting) return; console.error("[DIAG] realtime WebSocket onerror event:", event); console.error("[DIAG] socket.readyState at error:", socket.readyState); startPollingFallback(); };
-      socket.onclose = (event) => { console.error("[DIAG] realtime WebSocket onclose — code:", event.code, "| reason:", event.reason, "| wasClean:", event.wasClean, "| isUnmounting:", isUnmounting); if (!usingFallback && !isUnmounting) startPollingFallback(); };
+      socket.onerror = () => { if (isUnmounting) return; console.error("realtime socket error — falling back to polling"); startPollingFallback(); };
+      socket.onclose = () => { if (!usingFallback && !isUnmounting) startPollingFallback(); };
     } catch (err) {
-      console.error("[DIAG] realtime setup failed — full error:", err);
-      console.error("[DIAG] realtime setup failed — message:", err.message, "| stack:", err.stack);
+      console.error("realtime setup failed:", err.message);
       startPollingFallback();
     }
     return () => {
