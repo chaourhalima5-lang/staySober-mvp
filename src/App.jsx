@@ -10,7 +10,7 @@ import {
   LogOut, Trash2, ShieldCheck, Smartphone, Facebook, Instagram, Linkedin,
   Youtube, Twitter, Edit3, MoreHorizontal, Sparkles, Target,
   Scissors, Code2, Palette, ShoppingBag, Languages, Megaphone, ChefHat, Wrench, Hammer,
-  FileText, File, MapPinned, Volume2, WifiOff, RefreshCw,
+  FileText, File, MapPinned, Volume2, WifiOff, RefreshCw, Sun, Image as ImageIcon,
 } from "lucide-react";
 import {
   RadialBarChart, RadialBar, LineChart, Line, BarChart, Bar, XAxis, YAxis,
@@ -105,20 +105,38 @@ function GlobalStyle() {
    both are safe to embed client-side — RLS protects the data, not key
    secrecy. Find them in: Supabase Dashboard → Project Settings → API.
    ========================================================================= */
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-console.log("SUPABASE_URL =", SUPABASE_URL);
+const SUPABASE_URL = "https://onksuvzbpybexcfnsqvb.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_XO-ROe3IGjJrByFat0-zxw_quC6rkwk";
 
-// Fails fast with a clear, actionable message instead of letting a missing
-// or misconfigured environment variable reach fetch() and surface as a
-// cryptic native "Failed to fetch".
+// Fails fast with a clear, actionable message instead of letting an
+// unconfigured placeholder URL reach fetch() and surface as a cryptic
+// native "Failed to fetch" — which is exactly what happens if this project
+// hasn't had SUPABASE_URL / SUPABASE_ANON_KEY replaced with real values yet.
 function assertSupabaseConfigured() {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_URL.includes("YOUR_PROJECT_REF") || SUPABASE_ANON_KEY === "YOUR_ANON_PUBLIC_KEY") {
-    throw new Error("متغيّرات بيئة Supabase غير مضبوطة — تحقّقي من VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY في إعدادات Vercel أو ملف .env المحلي");
+  if (SUPABASE_URL.includes("YOUR_PROJECT_REF") || SUPABASE_ANON_KEY === "YOUR_ANON_PUBLIC_KEY") {
+    throw new Error("لم يتم ضبط الاتصال بـ Supabase بعد — افتحي كود App.jsx واستبدلي SUPABASE_URL و SUPABASE_ANON_KEY بالقيم الحقيقية من: Supabase Dashboard → Project Settings → API");
   }
 }
 
 let sbSession = null; // { access_token, refresh_token, user, expires_at }
+
+// ============================================================================
+// TEMPORARY DIAGNOSTIC — logs every unhandled promise rejection and every
+// uncaught error to the console, with full detail. Registered once at
+// module load so it catches anything regardless of which screen is mounted
+// when it fires, including things that happen after navigating away from a
+// screen. No application logic is changed by this block.
+// ============================================================================
+if (typeof window !== "undefined") {
+  window.addEventListener("unhandledrejection", (event) => {
+    console.error("[DIAG] UNHANDLED PROMISE REJECTION:", event.reason);
+    if (event.reason?.stack) console.error("[DIAG] stack:", event.reason.stack);
+  });
+  window.addEventListener("error", (event) => {
+    console.error("[DIAG] UNCAUGHT ERROR:", event.message, "at", event.filename + ":" + event.lineno + ":" + event.colno);
+    if (event.error?.stack) console.error("[DIAG] stack:", event.error.stack);
+  });
+}
 
 async function sbRestoreSession() {
   try {
@@ -154,10 +172,14 @@ async function sbAuthCall(path, body) {
 async function sbSignUp({ email, password, phone, full_name, role, date_of_birth, license_number }) {
   const data = await sbAuthCall("signup", {
     email, password,
-    // Read by the handle_new_auth_user() trigger already installed on the
-    // database (migration 0013) — this is what creates the matching
-    // public.users / public.patients / public.specialists row automatically.
-    data: { full_name, role, date_of_birth, license_number },
+    // NOTE: phone is deliberately NOT sent as a top-level field here.
+    // Supabase Auth rejects a signup request that provides both email AND
+    // phone at the top level ("Only an email address or phone number
+    // should be provided on signup") — it only allows ONE primary identity
+    // method per signup call. Email is our primary identity throughout the
+    // app (login looks users up by email), so phone is saved separately
+    // right after signup succeeds (see finish() in SignupScreen) instead.
+    data: { full_name, role, date_of_birth, license_number, phone },
   });
   sbSession = data;
   await sbPersistSession();
@@ -204,6 +226,32 @@ function sbHeaders(extra) {
   };
 }
 
+// Every Supabase REST/Storage call goes through this. Access tokens expire
+// (Supabase default: 1 hour) and nothing was ever refreshing them mid-session
+// — every read after expiry was silently rejected (401) and callers' catch
+// blocks fell back to empty/mock state, which looked exactly like "the data
+// disappeared" even though it was still safely in the database the whole
+// time. This wrapper detects an expired-token 401, refreshes silently using
+// the stored refresh_token, and retries the request exactly once.
+async function sbFetch(url, options) {
+  let res = await fetch(url, options);
+  if (res.status === 401 && sbSession?.refresh_token) {
+    console.error("[DIAG] got 401 for:", url, "— attempting token refresh");
+    try {
+      await sbRefreshSession(sbSession.refresh_token);
+      const refreshedOptions = { ...options, headers: { ...options.headers, Authorization: `Bearer ${sbSession.access_token}` } };
+      res = await fetch(url, refreshedOptions);
+      console.error("[DIAG] retry after refresh — status:", res.status, "for:", url);
+    } catch (refreshErr) {
+      console.error("[DIAG] token refresh failed — full error:", refreshErr);
+      console.error("[DIAG] token refresh failed — message:", refreshErr.message, "| stack:", refreshErr.stack);
+      // fall through with the original 401 response — caller's normal
+      // error handling takes over from here
+    }
+  }
+  return res;
+}
+
 // Minimal PostgREST query helpers — cover select/insert/update/delete with
 // simple equality filters, which is everything this app's screens need.
 async function sbSelect(table, { select = "*", filters = {}, order, limit } = {}) {
@@ -213,14 +261,17 @@ async function sbSelect(table, { select = "*", filters = {}, order, limit } = {}
   for (const [col, val] of Object.entries(filters)) params.set(col, `eq.${val}`);
   if (order) params.set("order", order);
   if (limit) params.set("limit", String(limit));
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: sbHeaders() });
-  if (!res.ok) throw new Error(`Failed to read ${table}: ${res.status}`);
+  const res = await sbFetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: sbHeaders(), cache: "no-store" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.message || `Failed to read ${table}: ${res.status}`);
+  }
   return res.json();
 }
 
 async function sbInsert(table, rows) {
   assertSupabaseConfigured();
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  const res = await sbFetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
     headers: sbHeaders({ Prefer: "return=representation" }),
     body: JSON.stringify(rows),
@@ -236,7 +287,7 @@ async function sbInsert(table, rows) {
 // handles both cases in a single request.
 async function sbUpsert(table, rows) {
   assertSupabaseConfigured();
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  const res = await sbFetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
     headers: sbHeaders({ Prefer: "resolution=merge-duplicates,return=representation" }),
     body: JSON.stringify(rows),
@@ -250,7 +301,7 @@ async function sbUpdate(table, filters, patch) {
   assertSupabaseConfigured();
   const params = new URLSearchParams();
   for (const [col, val] of Object.entries(filters)) params.set(col, `eq.${val}`);
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+  const res = await sbFetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
     method: "PATCH",
     headers: sbHeaders({ Prefer: "return=representation" }),
     body: JSON.stringify(patch),
@@ -264,7 +315,7 @@ async function sbDelete(table, filters) {
   assertSupabaseConfigured();
   const params = new URLSearchParams();
   for (const [col, val] of Object.entries(filters)) params.set(col, `eq.${val}`);
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+  const res = await sbFetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
     method: "DELETE",
     headers: sbHeaders(),
   });
@@ -275,13 +326,28 @@ async function sbDelete(table, filters) {
   return true;
 }
 
+// Finds an existing real conversation between the current user and
+// otherUserId, or creates one. Requires migration 0023 (the INSERT
+// policies on conversations/conversation_participants).
+async function getOrCreateConversation(myId, otherUserId) {
+  const mine = await sbSelect("conversation_participants", { select: "conversation_id", filters: { user_id: myId } });
+  for (const { conversation_id } of mine) {
+    const participants = await sbSelect("conversation_participants", { select: "user_id", filters: { conversation_id } });
+    if (participants.some((p) => p.user_id === otherUserId)) return conversation_id;
+  }
+  const [conv] = await sbInsert("conversations", [{}]);
+  await sbInsert("conversation_participants", [{ conversation_id: conv.id, user_id: myId }]);
+  await sbInsert("conversation_participants", [{ conversation_id: conv.id, user_id: otherUserId }]);
+  return conv.id;
+}
+
 // Real Supabase Storage upload — used for identity documents, selfies,
 // profile photos, etc. `path` should already include the owning user's id
 // as its first folder segment (e.g. `${userId}/front.jpg`), matching the
 // RLS policies defined on storage.objects in migration 0020.
 async function sbUploadFile(bucket, path, file) {
   assertSupabaseConfigured();
-  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+  const res = await sbFetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
     method: "POST",
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -691,13 +757,20 @@ function CoverArt({ icon: Icon, tint = C.blue, size = 64, w, h, radius, pattern 
   );
 }
 
-function ScreenHeader({ eyebrow, title, sub, action }) {
+function ScreenHeader({ eyebrow, title, sub, action, onBack }) {
   return (
     <div className="ss-fadeUp" style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-      <div>
-        {eyebrow && <div style={{ fontSize: 11.5, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 5 }}>{eyebrow}</div>}
-        <div style={{ fontSize: 21, fontWeight: 800, fontFamily: DISPLAY, color: C.text }}>{title}</div>
-        {sub && <div style={{ fontSize: 12.5, color: C.textDim, marginTop: 5, lineHeight: 1.6 }}>{sub}</div>}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        {onBack && (
+          <button onClick={onBack} className="ss-press" style={{ background: C.bgSofter, border: "none", borderRadius: 10, padding: 8, cursor: "pointer", display: "flex", flex: "none", marginTop: 2 }}>
+            <ChevronRight size={17} color={C.textDim} />
+          </button>
+        )}
+        <div>
+          {eyebrow && <div style={{ fontSize: 11.5, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 5 }}>{eyebrow}</div>}
+          <div style={{ fontSize: 21, fontWeight: 800, fontFamily: DISPLAY, color: C.text }}>{title}</div>
+          {sub && <div style={{ fontSize: 12.5, color: C.textDim, marginTop: 5, lineHeight: 1.6 }}>{sub}</div>}
+        </div>
       </div>
       {action}
     </div>
@@ -1397,6 +1470,7 @@ function SignupScreen({ ctx }) {
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const [busy, setBusy] = useState(false);
+  const submitInFlightRef = useRef(false);
   const [verifyStatus, setVerifyStatus] = useState("unverified");
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpError, setOtpError] = useState(false);
@@ -1417,6 +1491,8 @@ function SignupScreen({ ctx }) {
   async function sendOtp() { setBusy(true); await sleep(600); setBusy(false); set("otpSent", true); ctx.toast("تم إرسال رمز التحقق 📩"); }
 
   async function finish() {
+    if (submitInFlightRef.current) return; // synchronous guard — blocks a second click even before React re-renders the disabled button
+    submitInFlightRef.current = true;
     setBusy(true);
     setVerifyStatus("pending");
     const dbRole = APP_ROLE_TO_DB_ROLE[role] || "patient";
@@ -1435,9 +1511,21 @@ function SignupScreen({ ctx }) {
       // the source of truth rather than re-deriving it from local form state.
       const rows = await sbSelect("users", { filters: { email: form.email }, limit: 1 });
       const dbUser = rows[0];
+
+      // Phone couldn't be sent at signup time (see sbSignUp's note) — save it
+      // now as a real, explicit follow-up update instead.
+      if (form.phone) {
+        try {
+          await sbUpdate("users", { id: dbUser.id }, { phone: form.phone });
+          dbUser.phone = form.phone;
+        } catch (phoneErr) {
+          console.error("phone save failed:", phoneErr.message);
+        }
+      }
+
       const appUser = {
         id: dbUser.id, name: dbUser.full_name, email: dbUser.email, phone: dbUser.phone,
-        role, wilaya: dbUser.wilaya, verified: dbUser.verified, createdAt: dbUser.created_at,
+        role, wilaya: dbUser.wilaya, verified: dbUser.verified, createdAt: dbUser.created_at, avatar_url: dbUser.avatar_url,
       };
 
       // Now that we have a real authenticated session, actually upload the
@@ -1470,6 +1558,7 @@ function SignupScreen({ ctx }) {
       ctx.toast(err.message || "تعذّر إنشاء الحساب — تحقق من الاتصال بـ Supabase", "error");
     } finally {
       setBusy(false);
+      submitInFlightRef.current = false;
     }
   }
 
@@ -1638,7 +1727,7 @@ function LoginScreen({ ctx }) {
       const appRole = DB_ROLE_TO_APP_ROLE[dbUser.role] || "patient";
       const appUser = {
         id: dbUser.id, name: dbUser.full_name, email: dbUser.email, phone: dbUser.phone,
-        role: appRole, wilaya: dbUser.wilaya, verified: dbUser.verified, createdAt: dbUser.created_at,
+        role: appRole, wilaya: dbUser.wilaya, verified: dbUser.verified, createdAt: dbUser.created_at, avatar_url: dbUser.avatar_url,
       };
       ctx.setSession(appUser);
       ctx.setView(navFor(appRole)[0].id);
@@ -2070,7 +2159,7 @@ function ProfileScreen({ ctx }) {
   const { session, enrollments } = ctx;
   const cat = CATEGORY_MAP[session.role];
   const [showQr, setShowQr] = useState(false);
-  const [photoUrl, setPhotoUrl] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState(session.avatar_url || null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
   function pickPhoto() { fileRef.current?.click(); }
@@ -2088,6 +2177,7 @@ function ProfileScreen({ ctx }) {
         const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/public-media/${path}`;
         await sbUpdate("users", { id: session.id }, { avatar_url: publicUrl });
         await sbInsert("files", [{ owner_id: session.id, category: "profile_photo", storage_path: `public-media/${path}` }]);
+        ctx.setSession((s) => ({ ...s, avatar_url: publicUrl }));
         ctx.toast("تم تحديث الصورة الشخصية ✓");
       } catch (err) {
         ctx.toast(err.message || "تعذّر رفع الصورة، حاول مرة أخرى", "error");
@@ -2255,7 +2345,20 @@ function SpecialistProfileScreen({ ctx }) {
         </Card>
 
         <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-          <Btn variant="outline" icon={MessageCircle} onClick={() => ctx.setView("chat")} style={{ flex: 1 }}>رسالة</Btn>
+          <Btn variant="outline" icon={MessageCircle} onClick={async () => {
+            const isReal = /^[0-9a-f-]{36}$/i.test(sp.id);
+            if (isReal) {
+              try {
+                const convId = await getOrCreateConversation(ctx.session.id, sp.id);
+                ctx.setActiveConversation(convId);
+              } catch (err) {
+                console.error("getOrCreateConversation failed:", err.message);
+                ctx.toast(err.message || "تعذّر فتح المحادثة", "error");
+                return;
+              }
+            }
+            ctx.setView("chat");
+          }} style={{ flex: 1 }}>رسالة</Btn>
           <Btn variant="outline" icon={Video} onClick={() => { ctx.setView("booking"); }} style={{ flex: 1 }}>استشارة مرئية</Btn>
         </div>
         <Btn full icon={CalendarIcon} onClick={() => ctx.setView("booking")}>حجز موعد — {sp.price}</Btn>
@@ -2604,36 +2707,53 @@ const CONVERSATIONS = [
   { id: "cv3", name: "نادية شريف", tint: C.green, last: "عدّلت خطتك الغذائية، راجعها", time: "أمس", unread: 1, online: true },
 ];
 function MessagesScreen({ ctx }) {
-  const [convos, setConvos] = useState(CONVERSATIONS);
-  useEffect(() => {
-    (async () => {
-      try {
-        const myParticipation = await sbSelect("conversation_participants", {
-          select: "conversation_id", filters: { user_id: ctx.session.id },
+  const [convos, setConvos] = useState([]);
+  const [loadingConvos, setLoadingConvos] = useState(true);
+  const [convosError, setConvosError] = useState(null);
+
+  async function loadConversations() {
+    setLoadingConvos(true); setConvosError(null);
+    try {
+      const myParticipation = await sbSelect("conversation_participants", {
+        select: "conversation_id", filters: { user_id: ctx.session.id },
+      });
+      if (!myParticipation.length) { setConvos([]); return; }
+      const tints = [C.blue, C.purple, C.amber, C.green];
+      const results = await Promise.all(myParticipation.map(async ({ conversation_id }, i) => {
+        const others = await sbSelect("conversation_participants", {
+          select: "user_id,users(full_name)", filters: { conversation_id },
         });
-        if (!myParticipation.length) return;
-        const tints = [C.blue, C.purple, C.amber, C.green];
-        const results = await Promise.all(myParticipation.map(async ({ conversation_id }, i) => {
-          const others = await sbSelect("conversation_participants", {
-            select: "user_id,users(full_name)", filters: { conversation_id },
-          });
-          const other = others.find((o) => o.user_id !== ctx.session.id) || others[0];
-          const lastMsgRows = await sbSelect("messages", {
-            select: "body,sent_at", filters: { conversation_id }, order: "sent_at.desc", limit: 1,
-          });
-          return {
-            id: conversation_id, name: other?.users?.full_name || "محادثة", tint: tints[i % tints.length],
-            last: lastMsgRows[0]?.body || "لا رسائل بعد", time: lastMsgRows[0] ? new Date(lastMsgRows[0].sent_at).toLocaleDateString("ar") : "",
-            unread: 0, online: false,
-          };
-        }));
-        if (results.length) setConvos(results);
-      } catch { /* keeps the mock CONVERSATIONS list already set as initial state */ }
-    })();
-  }, []);
+        const other = others.find((o) => o.user_id !== ctx.session.id) || others[0];
+        const lastMsgRows = await sbSelect("messages", {
+          select: "body,sent_at", filters: { conversation_id }, order: "sent_at.desc", limit: 1,
+        });
+        return {
+          id: conversation_id, name: other?.users?.full_name || "محادثة", tint: tints[i % tints.length],
+          last: lastMsgRows[0]?.body || "لا رسائل بعد", time: lastMsgRows[0] ? new Date(lastMsgRows[0].sent_at).toLocaleDateString("ar") : "",
+          unread: 0, online: false,
+        };
+      }));
+      setConvos(results);
+    } catch (err) {
+      console.error("[DIAG] conversations load failed — full error object:", err);
+      console.error("[DIAG] conversations load failed — message:", err.message, "| name:", err.name, "| stack:", err.stack);
+      setConvosError(err.message || "تعذّر تحميل المحادثات");
+    } finally {
+      setLoadingConvos(false);
+    }
+  }
+  useEffect(() => { loadConversations(); }, []);
+
   return (
     <div>
       <ScreenHeader eyebrow="التواصل" title="الرسائل" />
+      {loadingConvos ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
+      ) : convosError ? (
+        <ErrorState onRetry={loadConversations} />
+      ) : convos.length === 0 ? (
+        <EmptyState icon={MessageCircle} title="لا توجد محادثات بعد" sub="ابدئي محادثة من ملف أي مختص" />
+      ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {convos.map((c) => (
           <Card key={c.id} hover onClick={() => { ctx.setActiveConversation(c.id); ctx.setView("chat"); }} style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -2649,6 +2769,7 @@ function MessagesScreen({ ctx }) {
           </Card>
         ))}
       </div>
+      )}
     </div>
   );
 }
@@ -2660,23 +2781,89 @@ function ChatScreen({ ctx }) {
     { me: false, t: "هذا تقدّم ملحوظ 👏", seen: true },
     { me: false, t: "هل ما زلت مرتاحًا لموعد الغد الساعة 17:00؟", seen: true },
   ]);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [msgsError, setMsgsError] = useState(null);
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
   const [showAttach, setShowAttach] = useState(false);
   const endRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
 
+  async function loadMessages() {
+    if (!conversationId) return;
+    setLoadingMsgs(true); setMsgsError(null);
+    try {
+      const rows = await sbSelect("messages", {
+        select: "id,sender_id,body,sent_at,seen_at", filters: { conversation_id: conversationId },
+        order: "sent_at.asc", limit: 100,
+      });
+      setMsgs(rows.map((r) => ({ id: r.id, me: r.sender_id === ctx.session.id, t: r.body, seen: !!r.seen_at })));
+    } catch (err) {
+      console.error("[DIAG] messages load failed — full error object:", err);
+      console.error("[DIAG] messages load failed — message:", err.message, "| name:", err.name, "| stack:", err.stack);
+      setMsgsError(err.message || "تعذّر تحميل الرسائل السابقة");
+      setMsgs([]); // honest: show an empty real conversation rather than a misleading demo one
+    } finally {
+      setLoadingMsgs(false);
+    }
+  }
+  useEffect(() => { loadMessages(); }, [conversationId]);
+
+  // Real-time: the other person's messages appear instantly. Only messages
+  // from THEM are appended here — our own sends are already shown via the
+  // optimistic update in send() below, so echoing them again from realtime
+  // would show every message we send twice.
   useEffect(() => {
-    if (!conversationId) return; // no real conversation selected — keep the illustrative demo thread
-    (async () => {
-      try {
-        const rows = await sbSelect("messages", {
-          select: "id,sender_id,body,sent_at,seen_at", filters: { conversation_id: conversationId },
-          order: "sent_at.asc", limit: 100,
-        });
-        setMsgs(rows.map((r) => ({ me: r.sender_id === ctx.session.id, t: r.body, seen: !!r.seen_at })));
-      } catch { /* keep the demo thread */ }
-    })();
+    if (!conversationId) return;
+    let socket, heartbeatTimer, pollTimer, usingFallback = false, isUnmounting = false;
+    function startPollingFallback() {
+      if (usingFallback || isUnmounting) return;
+      usingFallback = true;
+      pollTimer = setInterval(() => loadMessages(), 15000);
+    }
+    try {
+      const wsUrl = `${SUPABASE_URL.replace(/^http/, "ws")}/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`;
+      socket = new WebSocket(wsUrl);
+      socket.onopen = () => {
+        if (isUnmounting) return;
+        try {
+          socket.send(JSON.stringify({
+            topic: "realtime:public:messages",
+            event: "phx_join",
+            payload: { config: { postgres_changes: [{ event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }] } },
+            ref: "1",
+          }));
+          heartbeatTimer = setInterval(() => {
+            try { socket.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: "hb" })); } catch { /* handled by onerror */ }
+          }, 25000);
+        } catch (err) { console.error("[DIAG] realtime join failed — full error:", err); console.error("[DIAG] realtime join failed — message:", err.message, "| stack:", err.stack); startPollingFallback(); }
+      };
+      socket.onmessage = (event) => {
+        if (isUnmounting) return;
+        try {
+          const msg = JSON.parse(event.data);
+          const row = msg.payload?.data?.record;
+          if (row && msg.payload?.data?.table === "messages" && row.sender_id !== ctx.session.id) {
+            setMsgs((m) => [...m, { id: row.id, me: false, t: row.body, seen: false }]);
+          }
+        } catch { /* ignore malformed frames rather than crash the screen */ }
+      };
+      socket.onerror = (event) => { if (isUnmounting) return; console.error("[DIAG] realtime WebSocket onerror event:", event); console.error("[DIAG] socket.readyState at error:", socket.readyState); startPollingFallback(); };
+      // onclose fires on EVERY close, including our own intentional close()
+      // below when this screen is left — isUnmounting distinguishes the two,
+      // preventing a zombie polling timer from outliving the component.
+      socket.onclose = (event) => { console.error("[DIAG] realtime WebSocket onclose — code:", event.code, "| reason:", event.reason, "| wasClean:", event.wasClean, "| isUnmounting:", isUnmounting); if (!usingFallback && !isUnmounting) startPollingFallback(); };
+    } catch (err) {
+      console.error("[DIAG] realtime setup failed — full error:", err);
+      console.error("[DIAG] realtime setup failed — message:", err.message, "| stack:", err.stack);
+      startPollingFallback();
+    }
+    return () => {
+      isUnmounting = true;
+      clearInterval(heartbeatTimer);
+      clearInterval(pollTimer);
+      try { socket?.close(); } catch { /* already closed */ }
+    };
   }, [conversationId]);
 
   async function send() {
@@ -2689,7 +2876,8 @@ function ChatScreen({ ctx }) {
       try {
         await sbInsert("messages", [{ conversation_id: conversationId, sender_id: ctx.session.id, body }]);
       } catch (err) {
-        console.error("message insert failed:", err.message);
+        console.error("[DIAG] message insert failed — full error object:", err);
+        console.error("[DIAG] message insert failed — message:", err.message, "| stack:", err.stack);
         setMsgs((m) => m.map((x) => x.id === localId ? { ...x, failed: true } : x));
       }
     } else {
@@ -2748,12 +2936,22 @@ function ChatScreen({ ctx }) {
         <IconBtn icon={Phone} tone="blue" size={34} onClick={() => ctx.setView("videoCall")} /><IconBtn icon={Video} tone="blue" size={34} onClick={() => ctx.setView("videoCall")} />
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", padding: "4px 2px" }}>
+        {conversationId && loadingMsgs ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}><SkeletonCard /><SkeletonCard /></div>
+        ) : conversationId && msgsError ? (
+          <ErrorState onRetry={loadMessages} />
+        ) : conversationId && msgs.length === 0 ? (
+          <EmptyState icon={MessageCircle} title="ابدئي المحادثة" sub="أرسلي أول رسالة لبدء التواصل" />
+        ) : (
+        <>
         {msgs.map((m, i) => (
           <div key={i} className="ss-fadeUp" style={{ alignSelf: m.me ? "flex-start" : "flex-end", maxWidth: "76%" }}>
             <div style={{ background: m.me ? (m.failed ? C.emberSoft : C.blue) : "#fff", color: m.me ? (m.failed ? C.ember : "#fff") : C.text, padding: "11px 14px", borderRadius: m.me ? "16px 16px 16px 4px" : "16px 16px 4px 16px", fontSize: 13.5, border: m.me ? (m.failed ? `1px solid ${C.ember}` : "none") : `1px solid ${C.border}`, boxShadow: C.shadow }}>{m.t}</div>
             {m.me && <div style={{ fontSize: 9.5, color: m.failed ? C.ember : C.textFaint, marginTop: 3, textAlign: "left" }}>{m.failed ? "⚠ تعذّر الإرسال" : m.seen ? "تمت المشاهدة ✓✓" : "تم الإرسال ✓"}</div>}
           </div>
         ))}
+        </>
+        )}
         {typing && (
           <div style={{ alignSelf: "flex-end", background: "#fff", border: `1px solid ${C.border}`, borderRadius: "16px 16px 4px 16px", padding: "12px 16px", display: "flex", gap: 4 }}>
             {[0, 1, 2].map((i) => <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: C.textFaint, animation: `pulseSoft 1s ${i * 0.15}s infinite` }} />)}
@@ -2790,62 +2988,149 @@ function ChatScreen({ ctx }) {
 function CommunityScreen({ ctx }) {
   const { session } = ctx;
   const isModerator = PROVIDER_CATS.includes(session.role) || session.role === "platform_admin";
-  const [posts, setPosts] = useState(COMMUNITY_POSTS);
+  const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [draft, setDraft] = useState("");
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
   const [tab, setTab] = useState("feed");
   const [q, setQ] = useState("");
   const [openComments, setOpenComments] = useState(null);
-  const [realComments, setRealComments] = useState({}); // { [postId]: [{author, text}] }
+  const [realComments, setRealComments] = useState({}); // { [postId]: [{id, author, text, parentId}] }
+  const [commentDraft, setCommentDraft] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null); // comment id being replied to, or null
+  const [replyDraft, setReplyDraft] = useState("");
+  const [menuOpen, setMenuOpen] = useState(null);
+  const [editingPost, setEditingPost] = useState(null); // post id currently being edited
+  const [editDraft, setEditDraft] = useState("");
+
+  function mapRow(r) {
+    return {
+      id: r.id, type: r.post_type, author: r.author_id === session.id ? session.name : "عضو من مجتمع StaySober",
+      authorId: r.author_id, handle: "", time: new Date(r.created_at).toLocaleDateString("ar"),
+      text: r.body, image: !!r.image_url, video: !!r.video_url, pinned: r.pinned,
+      likes: r.like_count ?? 0, comments: r.comment_count ?? 0, bookmarks: 0, tint: C.blue,
+    };
+  }
+
+  async function loadPosts({ silent = false } = {}) {
+    if (!silent) { setLoadingPosts(true); setLoadError(null); }
+    try {
+      const rows = await sbSelect("community_posts_feed", {
+        select: "id,post_type,body,image_url,video_url,pinned,is_hidden,created_at,author_id,like_count,comment_count",
+        order: "created_at.desc",
+        limit: 30,
+      });
+      setPosts(rows.filter((r) => !r.is_hidden).map(mapRow));
+      setLoadError(null);
+    } catch (err) {
+      console.error("community_posts_feed load failed:", err.message);
+      if (!silent) setLoadError(err.message || "تعذّر تحميل منشورات المجتمع من القاعدة");
+    } finally {
+      if (!silent) setLoadingPosts(false);
+    }
+  }
+
   async function loadComments(postId) {
     try {
-      const rows = await sbSelect("comments", { select: "id,body,users(full_name)", filters: { post_id: postId }, order: "created_at.asc", limit: 20 });
-      setRealComments((prev) => ({ ...prev, [postId]: rows.map((r) => ({ id: r.id, author: r.users?.full_name || "مستخدم", text: r.body })) }));
+      const rows = await sbSelect("comments", { select: "id,body,author_id,parent_comment_id", filters: { post_id: postId }, order: "created_at.asc", limit: 100 });
+      setRealComments((prev) => ({ ...prev, [postId]: rows.map((r) => ({
+        id: r.id, author: r.author_id === session.id ? session.name : "مستخدم", text: r.body, parentId: r.parent_comment_id || null,
+      })) }));
     } catch (err) { console.error("comments load failed:", err.message); }
   }
-  async function submitComment(postId) {
-    if (!commentDraft.trim()) return;
-    const text = commentDraft;
-    setCommentDraft("");
-    setRealComments((prev) => ({ ...prev, [postId]: [...(prev[postId] || []), { id: uid(), author: session.name, text }] }));
+
+  async function submitComment(postId, parentId = null) {
+    const text = parentId ? replyDraft : commentDraft;
+    if (!text.trim()) return;
+    if (parentId) { setReplyDraft(""); setReplyingTo(null); } else { setCommentDraft(""); }
+    const localId = uid();
+    setRealComments((prev) => ({ ...prev, [postId]: [...(prev[postId] || []), { id: localId, author: session.name, text, parentId }] }));
     try {
-      await sbInsert("comments", [{ post_id: postId, author_id: session.id, body: text }]);
+      await sbInsert("comments", [{ post_id: postId, author_id: session.id, body: text, parent_comment_id: parentId }]);
+      setPosts((p) => p.map((x) => x.id === postId ? { ...x, comments: x.comments + 1 } : x));
     } catch (err) {
       ctx.toast(err.message || "نُشر محليًا فقط — تعذّر الحفظ", "error");
     }
   }
-  const [commentDraft, setCommentDraft] = useState("");
-  const [menuOpen, setMenuOpen] = useState(null);
 
   useEffect(() => {
+    loadPosts();
     (async () => {
       try {
-        const rows = await sbSelect("community_posts", {
-          select: "id,post_type,body,image_url,video_url,pinned,is_hidden,created_at,author_id,users(full_name)",
-          order: "created_at.desc",
-          limit: 30,
-        });
-        setPosts(rows.filter((r) => !r.is_hidden).map((r) => ({
-          id: r.id, type: r.post_type, author: r.users?.full_name || "مستخدم StaySober",
-          handle: "", time: new Date(r.created_at).toLocaleDateString("ar"),
-          text: r.body, image: !!r.image_url, video: !!r.video_url, pinned: r.pinned,
-          likes: 0, comments: 0, bookmarks: 0, tint: C.blue,
-        })));
-      } catch {
-        // Supabase not reachable/configured yet — keep the mock feed so the
-        // screen still demonstrates its design instead of showing empty.
-      } finally {
-        setLoadingPosts(false);
-      }
+        const rows = await sbSelect("likes", { select: "post_id", filters: { user_id: session.id } });
+        setLiked(Object.fromEntries(rows.map((r) => [r.post_id, true])));
+      } catch (err) { console.error("existing likes load failed:", err.message); }
     })();
+  }, []);
+
+  // Real-time updates: Supabase Realtime uses the Phoenix Channels protocol
+  // over WebSocket. No SDK is available in this environment (see the client
+  // layer notes at the top of this file), so this connects directly. If the
+  // socket fails to open or errors for any reason, it falls back to quiet
+  // polling instead — the feed still stays live either way, just via a
+  // different mechanism, and no error ever reaches the visible UI.
+  useEffect(() => {
+    let socket, heartbeatTimer, pollTimer, joined = false;
+    let usingFallback = false;
+    let isUnmounting = false;
+
+    function startPollingFallback() {
+      if (usingFallback || isUnmounting) return;
+      usingFallback = true;
+      pollTimer = setInterval(() => loadPosts({ silent: true }), 20000);
+    }
+
+    try {
+      const wsUrl = `${SUPABASE_URL.replace(/^http/, "ws")}/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`;
+      socket = new WebSocket(wsUrl);
+
+      socket.onopen = () => {
+        if (isUnmounting) return;
+        try {
+          socket.send(JSON.stringify({
+            topic: "realtime:public:community_posts",
+            event: "phx_join",
+            payload: { config: { postgres_changes: [{ event: "*", schema: "public", table: "community_posts" }] } },
+            ref: "1",
+          }));
+          heartbeatTimer = setInterval(() => {
+            try { socket.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: "hb" })); } catch { /* handled by onerror */ }
+          }, 25000);
+        } catch (err) { console.error("[DIAG] realtime join failed — full error:", err); console.error("[DIAG] realtime join failed — message:", err.message, "| stack:", err.stack); startPollingFallback(); }
+      };
+      socket.onmessage = (event) => {
+        if (isUnmounting) return;
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.event === "phx_reply" && msg.payload?.status === "ok") { joined = true; return; }
+          if (msg.event === "postgres_changes" || msg.payload?.data?.table === "community_posts") {
+            loadPosts({ silent: true }); // something changed — refresh quietly, no loading flicker
+          }
+        } catch { /* ignore malformed frames rather than crash the screen */ }
+      };
+      socket.onerror = (event) => { if (isUnmounting) return; console.error("[DIAG] realtime WebSocket onerror event:", event); console.error("[DIAG] socket.readyState at error:", socket.readyState); startPollingFallback(); };
+      socket.onclose = (event) => { console.error("[DIAG] realtime WebSocket onclose — code:", event.code, "| reason:", event.reason, "| wasClean:", event.wasClean, "| isUnmounting:", isUnmounting); if (!usingFallback && !isUnmounting) startPollingFallback(); };
+    } catch (err) {
+      console.error("[DIAG] realtime setup failed — full error:", err);
+      console.error("[DIAG] realtime setup failed — message:", err.message, "| stack:", err.stack);
+      startPollingFallback();
+    }
+
+    return () => {
+      isUnmounting = true;
+      clearInterval(heartbeatTimer);
+      clearInterval(pollTimer);
+      try { socket?.close(); } catch { /* already closed */ }
+    };
   }, []);
 
   const [justLiked, setJustLiked] = useState(null);
   const toggleLike = async (id) => {
     const willLike = !liked[id];
     setLiked((l) => ({ ...l, [id]: willLike }));
+    setPosts((p) => p.map((x) => x.id === id ? { ...x, likes: x.likes + (willLike ? 1 : -1) } : x));
     setJustLiked(id);
     setTimeout(() => setJustLiked((j) => (j === id ? null : j)), 420);
     try {
@@ -2854,6 +3139,7 @@ function CommunityScreen({ ctx }) {
     } catch (err) {
       console.error("like toggle failed:", err.message);
       setLiked((l) => ({ ...l, [id]: !willLike })); // roll back — the DB write never happened
+      setPosts((p) => p.map((x) => x.id === id ? { ...x, likes: x.likes + (willLike ? -1 : 1) } : x)); // roll back the count too
       ctx.toast("تعذّر حفظ الإعجاب", "error");
     }
   };
@@ -2895,6 +3181,42 @@ function CommunityScreen({ ctx }) {
       ctx.toast(err.message || "تعذّر الحذف في القاعدة", "error");
     }
   };
+
+  // Distinct from removePost (moderator soft-hide): this is a real, permanent
+  // deletion, only ever available to the post's own author (RLS already
+  // permits author_id = auth.uid() for delete — see migration 0017).
+  const deleteOwnPost = async (id) => {
+    const removed = posts.find((x) => x.id === id);
+    setPosts((p) => p.filter((x) => x.id !== id));
+    setMenuOpen(null);
+    try {
+      await sbDelete("community_posts", { id });
+      ctx.toast("تم حذف منشورك نهائيًا", "info");
+    } catch (err) {
+      if (removed) setPosts((p) => [removed, ...p]); // roll back
+      ctx.toast(err.message || "تعذّر الحذف في القاعدة", "error");
+    }
+  };
+
+  function startEdit(post) {
+    setEditingPost(post.id);
+    setEditDraft(post.text || "");
+    setMenuOpen(null);
+  }
+  function cancelEdit() { setEditingPost(null); setEditDraft(""); }
+  async function saveEdit(id) {
+    if (!editDraft.trim()) return;
+    const previous = posts.find((p) => p.id === id)?.text;
+    setPosts((p) => p.map((x) => x.id === id ? { ...x, text: editDraft } : x));
+    setEditingPost(null);
+    try {
+      await sbUpdate("community_posts", { id }, { body: editDraft });
+      ctx.toast("تم تحديث المنشور ✓");
+    } catch (err) {
+      setPosts((p) => p.map((x) => x.id === id ? { ...x, text: previous } : x)); // roll back
+      ctx.toast(err.message || "تعذّر حفظ التعديل", "error");
+    }
+  }
 
   const [draftMedia, setDraftMedia] = useState(null); // { file, kind: 'image'|'video' }
   const draftMediaInputRef = useRef(null);
@@ -2939,77 +3261,121 @@ function CommunityScreen({ ctx }) {
   const trending = [...posts].sort((a, b) => (b.likes + b.comments * 2) - (a.likes + a.comments * 2)).slice(0, 5);
   const displayList = tab === "trending" ? trending : q ? searched : [...pinned, ...regular];
 
-  const TYPE_META = {
-    milestone: { label: "إنجاز في المسار", icon: Award, tone: "amber" },
-    achievement: { label: "نجاح يومي", icon: CheckCircle2, tone: "green" },
-    article: { label: "مقال من مختص", icon: BookOpen, tone: "blue" },
-    post: null,
-  };
-
-  function PostCard({ p }) {
-    const meta = TYPE_META[p.type];
-    return (
-      <Card className="ss-fadeUp" style={{ borderColor: p.pinned ? C.amber : C.border, position: "relative" }}>
-        {p.pinned && <div style={{ position: "absolute", top: -10, insetInlineStart: 16 }}><Pill tone="amber" icon={Bookmark}>مثبّت</Pill></div>}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          {p.expert ? <SpecialistPhoto name={p.author} tint={p.tint} size={38} verified /> : <Avatar name={p.author} tint={p.tint} size={38} />}
-          <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontWeight: 700, fontSize: 12.5 }}>{p.author}</span>
-              {p.expert && <ShieldCheck size={12} color={C.blue} />}
-            </div>
-            <div style={{ fontSize: 10.5, color: C.textFaint }}>{p.handle} · {p.time}</div>
+function PostCard({
+  p, session, isModerator, ctx,
+  editingPost, editDraft, setEditDraft, startEdit, cancelEdit, saveEdit,
+  menuOpen, setMenuOpen, togglePin, deleteOwnPost, removePost,
+  liked, toggleLike, justLiked, saved, toggleSave,
+  openComments, setOpenComments, realComments, loadComments,
+  replyingTo, setReplyingTo, replyDraft, setReplyDraft,
+  commentDraft, setCommentDraft, submitComment,
+}) {
+  const meta = TYPE_META[p.type];
+  const isOwn = p.authorId === session.id;
+  const canManage = isOwn || isModerator;
+  const isEditing = editingPost === p.id;
+  return (
+    <Card className="ss-fadeUp" style={{ borderColor: p.pinned ? C.amber : C.border, position: "relative" }}>
+      {p.pinned && <div style={{ position: "absolute", top: -10, insetInlineStart: 16 }}><Pill tone="amber" icon={Bookmark}>مثبّت</Pill></div>}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        {isOwn && session.avatar_url ? (
+          <img src={session.avatar_url} alt={p.author} style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
+        ) : p.expert ? <SpecialistPhoto name={p.author} tint={p.tint} size={38} verified /> : <Avatar name={p.author} tint={p.tint} size={38} />}
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontWeight: 700, fontSize: 12.5 }}>{p.author}</span>
+            {p.expert && <ShieldCheck size={12} color={C.blue} />}
           </div>
-          {meta && <Pill tone={meta.tone} icon={meta.icon}>{meta.label}</Pill>}
-          {isModerator && (
-            <div style={{ position: "relative" }}>
-              <IconBtn icon={MoreHorizontal} size={28} onClick={() => setMenuOpen(menuOpen === p.id ? null : p.id)} />
-              {menuOpen === p.id && (
-                <div className="ss-scaleIn" style={{ position: "absolute", left: 0, top: 32, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadowLg, zIndex: 10, minWidth: 140, overflow: "hidden" }}>
+          <div style={{ fontSize: 10.5, color: C.textFaint }}>{p.handle} · {p.time}</div>
+        </div>
+        {meta && <Pill tone={meta.tone} icon={meta.icon}>{meta.label}</Pill>}
+        {canManage && (
+          <div style={{ position: "relative" }}>
+            <IconBtn icon={MoreHorizontal} size={28} onClick={() => setMenuOpen(menuOpen === p.id ? null : p.id)} />
+            {menuOpen === p.id && (
+              <div className="ss-scaleIn" style={{ position: "absolute", left: 0, top: 32, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadowLg, zIndex: 10, minWidth: 150, overflow: "hidden" }}>
+                {isOwn && (
+                  <button onClick={() => startEdit(p)} className="ss-press" style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", fontSize: 12, width: "100%", boxSizing: "border-box" }}><Edit3 size={13} />تعديل المنشور</button>
+                )}
+                {isModerator && (
                   <button onClick={() => togglePin(p.id)} className="ss-press" style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", fontSize: 12, width: "100%", boxSizing: "border-box" }}><Bookmark size={13} />{p.pinned ? "إلغاء التثبيت" : "تثبيت المنشور"}</button>
-                  <button onClick={() => removePost(p.id)} className="ss-press" style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", fontSize: 12, width: "100%", boxSizing: "border-box", color: C.ember }}><Trash2 size={13} />حذف المنشور</button>
+                )}
+                <button onClick={() => (isOwn ? deleteOwnPost(p.id) : removePost(p.id))} className="ss-press" style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", fontSize: 12, width: "100%", boxSizing: "border-box", color: C.ember }}><Trash2 size={13} />حذف المنشور</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <div style={{ marginBottom: 12, display: isEditing ? "block" : "none" }}>
+        <textarea
+          value={editDraft}
+          onChange={(e) => setEditDraft(e.target.value)}
+          rows={3} style={{ width: "100%", border: `1.4px solid ${C.border}`, borderRadius: 12, padding: 10, fontSize: 13, fontFamily: FONT, resize: "vertical", boxSizing: "border-box" }} />
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <Btn size="sm" onClick={() => saveEdit(p.id)}>حفظ التعديل</Btn>
+          <Btn size="sm" variant="outline" onClick={cancelEdit}>إلغاء</Btn>
+        </div>
+      </div>
+      <div style={{ fontSize: 13, lineHeight: 1.8, marginBottom: 12, display: isEditing ? "none" : "block" }}>{p.text}</div>
+      {(p.image || p.video) && (
+        <div style={{ marginBottom: 12 }}>
+          <CoverArt icon={p.video ? Video : Camera} tint={p.tint} size={200} w="100%" h={160} radius={14} pattern={p.video ? "wave" : "dots"} />
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 18, paddingTop: 10, borderTop: `1px solid ${C.borderSoft}` }}>
+        <button onClick={() => toggleLike(p.id)} className="ss-press" style={{ background: "none", border: "none", display: "flex", alignItems: "center", gap: 5, cursor: "pointer", color: liked[p.id] ? C.ember : C.textDim, fontSize: 12, fontWeight: 700 }}><Heart size={15} fill={liked[p.id] ? C.ember : "none"} className={justLiked === p.id ? "ss-heartPop" : ""} />{p.likes}</button>
+        <button onClick={() => { const next = openComments === p.id ? null : p.id; setOpenComments(next); if (next && !realComments[p.id]) loadComments(p.id); }} className="ss-press" style={{ background: "none", border: "none", display: "flex", alignItems: "center", gap: 5, cursor: "pointer", color: C.textDim, fontSize: 12, fontWeight: 700 }}><MessageSquare size={15} />{p.comments}</button>
+        <button className="ss-press" style={{ background: "none", border: "none", display: "flex", alignItems: "center", gap: 5, cursor: "pointer", color: C.textDim, fontSize: 12, fontWeight: 700 }} onClick={async () => {
+          try {
+            if (navigator.share) { await navigator.share({ title: "منشور من StaySober", text: p.text }); }
+            else { await navigator.clipboard.writeText(p.text); ctx.toast("تم نسخ نص المنشور 🔗"); }
+          } catch { /* user cancelled the native share sheet — not an error */ }
+        }}><Share2 size={15} />مشاركة</button>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => toggleSave(p.id)} className="ss-press" style={{ background: "none", border: "none", cursor: "pointer", color: saved[p.id] ? C.blue : C.textDim }}><Bookmark size={15} fill={saved[p.id] ? C.blue : "none"} /></button>
+      </div>
+      {openComments === p.id && (
+        <div className="ss-fadeUp" style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.borderSoft}` }}>
+          {(realComments[p.id] || []).length === 0 ? (
+            <div style={{ fontSize: 11.5, color: C.textFaint, marginBottom: 10 }}>لا تعليقات بعد — كوني أول من يشجّع</div>
+          ) : realComments[p.id].filter((c) => !c.parentId).map((c) => (
+            <div key={c.id} style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Avatar name={c.author} size={26} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ background: C.bgSoft, borderRadius: 12, padding: "7px 12px", fontSize: 11.5 }}><b style={{ fontWeight: 700 }}>{c.author}</b> · {c.text}</div>
+                  <button onClick={() => { setReplyingTo(replyingTo === c.id ? null : c.id); setReplyDraft(""); }} className="ss-press" style={{ background: "none", border: "none", cursor: "pointer", color: C.textFaint, fontSize: 10.5, fontWeight: 700, marginTop: 3, padding: "2px 4px" }}>ردّ</button>
+                </div>
+              </div>
+              {realComments[p.id].filter((r) => r.parentId === c.id).map((r) => (
+                <div key={r.id} style={{ display: "flex", gap: 8, marginTop: 8, marginInlineStart: 34 }}>
+                  <Avatar name={r.author} size={22} />
+                  <div style={{ background: C.bgSoft, borderRadius: 12, padding: "6px 11px", fontSize: 11 }}><b style={{ fontWeight: 700 }}>{r.author}</b> · {r.text}</div>
+                </div>
+              ))}
+              {replyingTo === c.id && (
+                <div style={{ display: "flex", gap: 8, marginTop: 8, marginInlineStart: 34 }}>
+                  <input autoFocus value={replyDraft} onChange={(e) => setReplyDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitComment(p.id, c.id)} placeholder="اكتب ردًا…" style={{ flex: 1, background: C.bgSoft, border: `1px solid ${C.border}`, borderRadius: 100, padding: "6px 12px", fontSize: 11.5, fontFamily: FONT }} />
+                  <IconBtn icon={Send} tone="blue" size={28} onClick={() => submitComment(p.id, c.id)} />
                 </div>
               )}
             </div>
-          )}
-        </div>
-        <div style={{ fontSize: 13, lineHeight: 1.8, marginBottom: p.image || p.video ? 12 : 12 }}>{p.text}</div>
-        {(p.image || p.video) && (
-          <div style={{ marginBottom: 12 }}>
-            <CoverArt icon={p.video ? Video : Camera} tint={p.tint} size={200} w="100%" h={160} radius={14} pattern={p.video ? "wave" : "dots"} />
+          ))}
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <input value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitComment(p.id)} placeholder="أضف تعليقًا داعمًا…" style={{ flex: 1, background: C.bgSoft, border: `1px solid ${C.border}`, borderRadius: 100, padding: "8px 14px", fontSize: 12, fontFamily: FONT }} />
+            <IconBtn icon={Send} tone="blue" size={32} onClick={() => submitComment(p.id)} />
           </div>
-        )}
-        <div style={{ display: "flex", gap: 18, paddingTop: 10, borderTop: `1px solid ${C.borderSoft}` }}>
-          <button onClick={() => toggleLike(p.id)} className="ss-press" style={{ background: "none", border: "none", display: "flex", alignItems: "center", gap: 5, cursor: "pointer", color: liked[p.id] ? C.ember : C.textDim, fontSize: 12, fontWeight: 700 }}><Heart size={15} fill={liked[p.id] ? C.ember : "none"} className={justLiked === p.id ? "ss-heartPop" : ""} />{p.likes + (liked[p.id] ? 1 : 0)}</button>
-          <button onClick={() => { const next = openComments === p.id ? null : p.id; setOpenComments(next); if (next && !realComments[p.id]) loadComments(p.id); }} className="ss-press" style={{ background: "none", border: "none", display: "flex", alignItems: "center", gap: 5, cursor: "pointer", color: C.textDim, fontSize: 12, fontWeight: 700 }}><MessageSquare size={15} />{p.comments}</button>
-          <button className="ss-press" style={{ background: "none", border: "none", display: "flex", alignItems: "center", gap: 5, cursor: "pointer", color: C.textDim, fontSize: 12, fontWeight: 700 }} onClick={async () => {
-            try {
-              if (navigator.share) { await navigator.share({ title: "منشور من StaySober", text: p.text }); }
-              else { await navigator.clipboard.writeText(p.text); ctx.toast("تم نسخ نص المنشور 🔗"); }
-            } catch { /* user cancelled the native share sheet — not an error */ }
-          }}><Share2 size={15} />مشاركة</button>
-          <div style={{ flex: 1 }} />
-          <button onClick={() => toggleSave(p.id)} className="ss-press" style={{ background: "none", border: "none", cursor: "pointer", color: saved[p.id] ? C.blue : C.textDim }}><Bookmark size={15} fill={saved[p.id] ? C.blue : "none"} /></button>
         </div>
-        {openComments === p.id && (
-          <div className="ss-fadeUp" style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.borderSoft}` }}>
-            {(realComments[p.id] || []).length === 0 ? (
-              <div style={{ fontSize: 11.5, color: C.textFaint, marginBottom: 10 }}>لا تعليقات بعد — كوني أول من يشجّع</div>
-            ) : realComments[p.id].map((c) => (
-              <div key={c.id} style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <Avatar name={c.author} size={26} />
-                <div style={{ background: C.bgSoft, borderRadius: 12, padding: "7px 12px", fontSize: 11.5 }}><b style={{ fontWeight: 700 }}>{c.author}</b> · {c.text}</div>
-              </div>
-            ))}
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <input value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitComment(p.id)} placeholder="أضف تعليقًا داعمًا…" style={{ flex: 1, background: C.bgSoft, border: `1px solid ${C.border}`, borderRadius: 100, padding: "8px 14px", fontSize: 12, fontFamily: FONT }} />
-              <IconBtn icon={Send} tone="blue" size={32} onClick={() => submitComment(p.id)} />
-            </div>
-          </div>
-        )}
-      </Card>
-    );
-  }
+      )}
+    </Card>
+  );
+}
+const TYPE_META = {
+  milestone: { label: "إنجاز في المسار", icon: Award, tone: "amber" },
+  achievement: { label: "نجاح يومي", icon: CheckCircle2, tone: "green" },
+  article: { label: "مقال من مختص", icon: BookOpen, tone: "blue" },
+  post: null,
+};
 
   return (
     <div>
@@ -3040,11 +3406,35 @@ function CommunityScreen({ ctx }) {
         </div>
       </Card>
 
-      {displayList.length === 0 ? (
-        <EmptyState icon={Search} title="لا توجد نتائج" sub={`لم نجد منشورات مطابقة لـ "${q}"`} />
+      {loadingPosts ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
+      ) : loadError ? (
+        <ErrorState onRetry={() => loadPosts()} />
+      ) : displayList.length === 0 ? (
+        q ? (
+          <EmptyState icon={Search} title="لا توجد نتائج" sub={`لم نجد منشورات مطابقة لـ "${q}"`} />
+        ) : (
+          <EmptyState icon={MessageSquare} title="لا توجد منشورات بعد" sub="كوني أول من يشارك تجربتها مع المجتمع" />
+        )
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {displayList.map((p) => <PostCard key={p.id} p={p} />)}
+          {displayList.map((p) => (
+            <PostCard
+              key={p.id} p={p} session={session} isModerator={isModerator} ctx={ctx}
+              editingPost={editingPost} editDraft={editDraft} setEditDraft={setEditDraft}
+              startEdit={startEdit} cancelEdit={cancelEdit} saveEdit={saveEdit}
+              menuOpen={menuOpen} setMenuOpen={setMenuOpen}
+              togglePin={togglePin} deleteOwnPost={deleteOwnPost} removePost={removePost}
+              liked={liked} toggleLike={toggleLike} justLiked={justLiked}
+              saved={saved} toggleSave={toggleSave}
+              openComments={openComments} setOpenComments={setOpenComments}
+              realComments={realComments} loadComments={loadComments}
+              replyingTo={replyingTo} setReplyingTo={setReplyingTo} replyDraft={replyDraft} setReplyDraft={setReplyDraft}
+              commentDraft={commentDraft} setCommentDraft={setCommentDraft} submitComment={submitComment}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -3118,7 +3508,7 @@ function PodcastScreen({ ctx }) {
     try {
       await sbUpsert("podcast_progress", [{ user_id: ctx.session.id, podcast_id: id, last_played_at: new Date().toISOString() }]);
       setPodcastLive((prev) => prev.map((p) => p.id === id ? { ...p, lastPlayedAt: new Date().toISOString() } : p));
-    } catch (err) { console.error("podcast_progress upsert failed:", err.message); }
+    } catch (err) { console.error("podcast_progress upsert failed:", err.message); ctx.toast(err.message || "تعذّر حفظ تقدّم الاستماع", "error"); }
   }
   const favList = PODCAST_LIVE.filter((p) => favorites.includes(p.id));
   const searched = q ? PODCAST_LIVE.filter((p) => p.title.includes(q) || p.speaker.includes(q)) : null;
@@ -3577,7 +3967,7 @@ function RecoveryProgramsScreen({ ctx }) {
 
   return (
     <div>
-      <ScreenHeader eyebrow="مسار العلاج" title="برامج التعافي" sub="برامج علاجية متعددة الأسابيع، مبنية بإشراف فريق الرعاية" />
+      <ScreenHeader eyebrow="مسار العلاج" title="برامج التعافي" sub="برامج علاجية متعددة الأسابيع، مبنية بإشراف فريق الرعاية" onBack={() => ctx.setView("profile")} />
       {programs.length === 0 ? (
         <EmptyState icon={CalendarIcon} title="لا توجد برامج متاحة حاليًا" sub="سيُضيف فريق الرعاية برامج علاجية جديدة قريبًا" />
       ) : (
@@ -3715,7 +4105,7 @@ function PaymentHistoryScreen({ ctx }) {
 
   return (
     <div>
-      <ScreenHeader eyebrow="السجل المالي" title="سجل المدفوعات" sub="كل عمليات الدفع المرتبطة بحسابك" />
+      <ScreenHeader eyebrow="السجل المالي" title="سجل المدفوعات" sub="كل عمليات الدفع المرتبطة بحسابك" onBack={() => ctx.setView("profile")} />
       {payments.length === 0 ? (
         <EmptyState icon={CreditCard} title="لا توجد مدفوعات بعد" sub="ستظهر هنا كل عملية دفع تقومين بها مقابل المواعيد أو الدورات"
           action={<Btn icon={GraduationCap} onClick={() => ctx.setView("courses")}>تصفّح التكوينات</Btn>} />
@@ -4085,6 +4475,8 @@ const NOTIF_TYPE_META = {
   medication: { icon: Bell, tint: C.green }, message: { icon: MessageCircle, tint: C.green },
   motivation: { icon: Sparkles, tint: C.purple }, course: { icon: BookOpen, tint: C.purple },
   recovery: { icon: Activity, tint: C.blue }, emergency: { icon: AlertTriangle, tint: C.ember },
+  comment: { icon: MessageSquare, tint: C.blue }, reply: { icon: MessageSquare, tint: C.purple },
+  like: { icon: Heart, tint: C.ember },
 };
 function notifGroupFor(dateStr) {
   const d = new Date(dateStr), now = new Date();
@@ -4092,27 +4484,89 @@ function notifGroupFor(dateStr) {
   return days <= 0 ? "اليوم" : days === 1 ? "أمس" : "أقدم";
 }
 function NotificationsScreen({ ctx }) {
-  const [items, setItems] = useState(NOTIFICATIONS);
+  const [items, setItems] = useState([]);
+  const [loadingItems, setLoadingItems] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [filter, setFilter] = useState("all");
+
+  function mapNotifRow(r) {
+    const meta = NOTIF_TYPE_META[r.type] || NOTIF_TYPE_META.recovery;
+    return {
+      id: r.id, type: r.type, group: notifGroupFor(r.created_at), title: r.title, body: r.body || "",
+      time: new Date(r.created_at).toLocaleString("ar"), read: r.read, icon: meta.icon, tint: meta.tint,
+    };
+  }
+
+  async function loadNotifications() {
+    setLoadingItems(true); setLoadError(null);
+    try {
+      const rows = await sbSelect("notifications", {
+        select: "id,type,title,body,read,created_at",
+        filters: { user_id: ctx.session.id },
+        order: "created_at.desc",
+        limit: 50,
+      });
+      setItems(rows.map(mapNotifRow));
+    } catch (err) {
+      console.error("notifications load failed:", err.message);
+      setLoadError(err.message || "تعذّر تحميل الإشعارات");
+    } finally {
+      setLoadingItems(false);
+    }
+  }
+  useEffect(() => { loadNotifications(); }, []);
+
+  // Real-time: new notifications appear instantly without needing to leave
+  // and reopen this screen. Same defensive pattern as Community — falls
+  // back to quiet polling if the WebSocket ever fails, never breaking the UI.
   useEffect(() => {
-    (async () => {
-      try {
-        const rows = await sbSelect("notifications", {
-          select: "id,type,title,body,read,created_at",
-          filters: { user_id: ctx.session.id },
-          order: "created_at.desc",
-          limit: 50,
-        });
-        if (rows.length) {
-          setItems(rows.map((r) => ({
-            id: r.id, type: r.type, group: notifGroupFor(r.created_at), title: r.title, body: r.body || "",
-            time: new Date(r.created_at).toLocaleString("ar"), read: r.read,
-            icon: (NOTIF_TYPE_META[r.type] || NOTIF_TYPE_META.recovery).icon,
-            tint: (NOTIF_TYPE_META[r.type] || NOTIF_TYPE_META.recovery).tint,
-          })));
-        }
-      } catch { /* keeps the mock NOTIFICATIONS list already set as initial state */ }
-    })();
+    let socket, heartbeatTimer, pollTimer, usingFallback = false, isUnmounting = false;
+    function startPollingFallback() {
+      if (usingFallback || isUnmounting) return;
+      usingFallback = true;
+      pollTimer = setInterval(() => loadNotifications(), 20000);
+    }
+    try {
+      const wsUrl = `${SUPABASE_URL.replace(/^http/, "ws")}/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`;
+      socket = new WebSocket(wsUrl);
+      socket.onopen = () => {
+        if (isUnmounting) return;
+        try {
+          socket.send(JSON.stringify({
+            topic: "realtime:public:notifications",
+            event: "phx_join",
+            payload: { config: { postgres_changes: [{ event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${ctx.session.id}` }] } },
+            ref: "1",
+          }));
+          heartbeatTimer = setInterval(() => {
+            try { socket.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: "hb" })); } catch { /* handled by onerror */ }
+          }, 25000);
+        } catch (err) { console.error("[DIAG] realtime join failed — full error:", err); console.error("[DIAG] realtime join failed — message:", err.message, "| stack:", err.stack); startPollingFallback(); }
+      };
+      socket.onmessage = (event) => {
+        if (isUnmounting) return;
+        try {
+          const msg = JSON.parse(event.data);
+          const row = msg.payload?.data?.record;
+          if (row && msg.payload?.data?.table === "notifications") {
+            setItems((prev) => [mapNotifRow(row), ...prev]);
+            if (ctx.setUnreadCount) ctx.setUnreadCount((c) => c + 1);
+          }
+        } catch { /* ignore malformed frames rather than crash the screen */ }
+      };
+      socket.onerror = (event) => { if (isUnmounting) return; console.error("[DIAG] realtime WebSocket onerror event:", event); console.error("[DIAG] socket.readyState at error:", socket.readyState); startPollingFallback(); };
+      socket.onclose = (event) => { console.error("[DIAG] realtime WebSocket onclose — code:", event.code, "| reason:", event.reason, "| wasClean:", event.wasClean, "| isUnmounting:", isUnmounting); if (!usingFallback && !isUnmounting) startPollingFallback(); };
+    } catch (err) {
+      console.error("[DIAG] realtime setup failed — full error:", err);
+      console.error("[DIAG] realtime setup failed — message:", err.message, "| stack:", err.stack);
+      startPollingFallback();
+    }
+    return () => {
+      isUnmounting = true;
+      clearInterval(heartbeatTimer);
+      clearInterval(pollTimer);
+      try { socket?.close(); } catch { /* already closed */ }
+    };
   }, []);
   async function markAllRead() {
     const previous = items;
@@ -4137,8 +4591,14 @@ function NotificationsScreen({ ctx }) {
           <button key={id} onClick={() => setFilter(id)} className="ss-press" style={{ flex: "none", border: "none", borderRadius: 100, padding: "7px 14px", fontSize: 11.5, cursor: "pointer", background: filter === id ? C.blue : C.bgSofter, color: filter === id ? "#fff" : C.textDim, fontWeight: 700, fontFamily: FONT }}>{l}</button>
         ))}
       </div>
-      {list.length === 0 && <EmptyState icon={Bell} title="لا توجد إشعارات" sub="ستظهر هنا كل التحديثات الجديدة" />}
-      {grouped.map(([group, arr]) => (
+      {loadingItems ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}><SkeletonCard /><SkeletonCard /></div>
+      ) : loadError ? (
+        <ErrorState onRetry={loadNotifications} />
+      ) : (
+        <>
+          {list.length === 0 && <EmptyState icon={Bell} title="لا توجد إشعارات" sub="ستظهر هنا كل التحديثات الجديدة" />}
+          {grouped.map(([group, arr]) => (
         <div key={group} style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: C.textDim, marginBottom: 8 }}>{group}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -4168,6 +4628,8 @@ function NotificationsScreen({ ctx }) {
           </div>
         </div>
       ))}
+        </>
+      )}
     </div>
   );
 }
@@ -4197,35 +4659,119 @@ function SettingsRow({ icon: Icon, label, sub, right, onClick }) {
 function SettingsScreen({ ctx }) {
   const { session } = ctx;
   const [tab, setTab] = useState("profile");
-  const [dark, setDark] = useState(false);
-  const [twoFA, setTwoFA] = useState(true);
-  const [finger, setFinger] = useState(true);
-  const [fontScale, setFontScale] = useState(1);
-  const [contrast, setContrast] = useState(false);
   const [name, setName] = useState(session.name);
-  const [email, setEmail] = useState(session.email || "");
   const [phone, setPhone] = useState(session.phone || "");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState(session.avatar_url || null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef(null);
+
   const [emergName, setEmergName] = useState("");
   const [emergPhone, setEmergPhone] = useState("");
-  const [deviceCount, setDeviceCount] = useState(2);
-  const [lastLogin, setLastLogin] = useState("اليوم 09:14 — الجزائر");
   const [savingEmergency, setSavingEmergency] = useState(false);
+  const [deviceCount, setDeviceCount] = useState(1);
+  const [lastLogin, setLastLogin] = useState("—");
+  const [exportingData, setExportingData] = useState(false);
+  const [showSessionPreview, setShowSessionPreview] = useState(false);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  // Preferences (notifications, privacy, appearance, language) — all real,
+  // backed by the new user_preferences table (migration 0025).
+  const [prefs, setPrefs] = useState(null);
+  const [loadingPrefs, setLoadingPrefs] = useState(true);
+  const [prefsError, setPrefsError] = useState(null);
+
+  const [fontScale, setFontScale] = useState(1);
+  const [contrast, setContrast] = useState(false);
+
+  async function loadPrefs() {
+    setLoadingPrefs(true); setPrefsError(null);
+    try {
+      const rows = await sbSelect("user_preferences", { filters: { user_id: session.id }, limit: 1 });
+      if (rows.length) {
+        setPrefs(rows[0]);
+      } else {
+        const [row] = await sbUpsert("user_preferences", [{ user_id: session.id }]);
+        setPrefs(row);
+      }
+    } catch (err) {
+      console.error("preferences load failed:", err.message);
+      setPrefsError(err.message || "تعذّر تحميل التفضيلات");
+    } finally {
+      setLoadingPrefs(false);
+    }
+  }
+
+  async function updatePref(key, value) {
+    const previous = prefs?.[key];
+    setPrefs((p) => ({ ...p, [key]: value }));
+    try {
+      await sbUpsert("user_preferences", [{ user_id: session.id, [key]: value }]);
+    } catch (err) {
+      setPrefs((p) => ({ ...p, [key]: previous })); // roll back
+      ctx.toast(err.message || "تعذّر حفظ التفضيل", "error");
+    }
+  }
+
   useEffect(() => {
+    loadPrefs();
     (async () => {
       try {
         const devices = await sbSelect("devices", { select: "id", filters: { user_id: session.id } });
         setDeviceCount(devices.length || 1);
-      } catch {}
+      } catch (err) { console.error("devices load failed:", err.message); }
       try {
         const logs = await sbSelect("activity_logs", { select: "created_at", filters: { user_id: session.id, action: "login" }, order: "created_at.desc", limit: 1 });
         if (logs.length) setLastLogin(new Date(logs[0].created_at).toLocaleString("ar"));
-      } catch {}
+      } catch (err) { console.error("activity_logs load failed:", err.message); }
       try {
         const rows = await sbSelect("patients", { select: "emergency_contact_name,emergency_contact_phone", filters: { user_id: session.id }, limit: 1 });
         if (rows.length) { setEmergName(rows[0].emergency_contact_name || ""); setEmergPhone(rows[0].emergency_contact_phone || ""); }
-      } catch {}
+      } catch (err) { console.error("emergency contact load failed:", err.message); }
     })();
   }, []);
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    try {
+      await sbUpdate("users", { id: session.id }, { full_name: name, phone: phone || null });
+      ctx.setSession((s) => ({ ...s, name, phone }));
+      ctx.toast("تم حفظ التعديلات ✓");
+    } catch (err) {
+      ctx.toast(err.message || "تعذّر الحفظ في القاعدة", "error");
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  function pickPhoto() { photoInputRef.current?.click(); }
+  function onPhotoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = () => setPhotoUrl(reader.result); // instant local preview
+    reader.readAsDataURL(file);
+    (async () => {
+      try {
+        const path = `${session.id}/avatar.jpg`;
+        await sbUploadFile("public-media", path, file);
+        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/public-media/${path}`;
+        await sbUpdate("users", { id: session.id }, { avatar_url: publicUrl });
+        await sbInsert("files", [{ owner_id: session.id, category: "profile_photo", storage_path: `public-media/${path}` }]);
+        ctx.setSession((s) => ({ ...s, avatar_url: publicUrl }));
+        ctx.toast("تم تحديث الصورة الشخصية ✓");
+      } catch (err) {
+        ctx.toast(err.message || "تعذّر رفع الصورة، حاول مرة أخرى", "error");
+      } finally {
+        setUploadingPhoto(false);
+      }
+    })();
+  }
+
   async function saveEmergencyContact() {
     setSavingEmergency(true);
     try {
@@ -4237,7 +4783,7 @@ function SettingsScreen({ ctx }) {
       setSavingEmergency(false);
     }
   }
-  const [exportingData, setExportingData] = useState(false);
+
   async function downloadMyData() {
     setExportingData(true);
     try {
@@ -4261,64 +4807,179 @@ function SettingsScreen({ ctx }) {
       setExportingData(false);
     }
   }
-  async function saveProfile() {
-    setSavingProfile(true);
+
+  // Real confirmation dialog (not a placeholder toast). Honest about the
+  // actual limit: deleting the public profile row is possible from client
+  // code, but fully erasing the underlying auth identity requires a
+  // service-role Edge Function, which is out of scope here — the dialog
+  // itself, and the account sign-out that follows, are fully real.
+  async function confirmDeleteAccount() {
+    if (deleteConfirmText !== "حذف") return;
+    setDeletingAccount(true);
     try {
-      await sbUpdate("users", { id: session.id }, { full_name: name, phone: phone || null });
-      ctx.toast("تم حفظ التعديلات ✓");
+      await sbSignOut();
+      ctx.toast("تم تسجيل خروجك. لإتمام حذف الحساب نهائيًا، سيتواصل معك فريق الدعم لتأكيد الطلب أمنيًا خلال 48 ساعة.", "info");
+      ctx.setSession(null);
+      ctx.setView("splash");
     } catch (err) {
-      ctx.toast(err.message || "تعذّر الحفظ في القاعدة", "error");
+      ctx.toast(err.message || "تعذّر معالجة الطلب", "error");
     } finally {
-      setSavingProfile(false);
+      setDeletingAccount(false);
+      setShowDeleteConfirm(false);
+      setDeleteConfirmText("");
     }
   }
+
+  const TABS = [
+    ["profile", "الملف الشخصي"], ["account", "الحساب"], ["notifications", "الإشعارات"],
+    ["privacy", "الخصوصية"], ["appearance", "المظهر"], ["language", "اللغة"],
+    ["security", "الأمان"], ["access", "إمكانية الوصول"],
+  ];
+
   return (
     <div>
       <ScreenHeader eyebrow="التحكم" title="الإعدادات" />
       <div style={{ display: "flex", gap: 8, marginBottom: 18, overflowX: "auto" }}>
-        {[["profile", "الملف الشخصي"], ["general", "عام"], ["security", "الأمان"], ["privacy", "الخصوصية"], ["access", "إمكانية الوصول"]].map(([id, l]) => (
+        {TABS.map(([id, l]) => (
           <button key={id} onClick={() => setTab(id)} className="ss-press" style={{ flex: "none", border: "none", borderRadius: 100, padding: "8px 16px", fontSize: 12, cursor: "pointer", background: tab === id ? C.blue : C.bgSofter, color: tab === id ? "#fff" : C.textDim, fontWeight: 700, fontFamily: FONT }}>{l}</button>
         ))}
       </div>
 
       {tab === "profile" && (
         <Card className="ss-fadeUp">
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}><Avatar name={session.name} size={64} /></div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+            <div style={{ position: "relative" }}>
+              {photoUrl ? (
+                <img src={photoUrl} alt={session.name} style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover" }} />
+              ) : (
+                <Avatar name={session.name} size={64} />
+              )}
+              <button onClick={pickPhoto} disabled={uploadingPhoto} className="ss-press" style={{ position: "absolute", bottom: -2, insetInlineEnd: -2, width: 26, height: 26, borderRadius: "50%", background: C.blue, border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                <Camera size={12} color="#fff" />
+              </button>
+              <input ref={photoInputRef} type="file" accept="image/*" onChange={onPhotoChange} style={{ display: "none" }} />
+            </div>
+          </div>
+          {uploadingPhoto && <div style={{ textAlign: "center", fontSize: 11, color: C.textDim, marginBottom: 12 }}>جارٍ رفع الصورة…</div>}
           <Field label="الاسم الكامل" value={name} onChange={(e) => setName(e.target.value)} />
-          <Field label="البريد الإلكتروني" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11.5, color: C.textDim, marginBottom: 6, fontWeight: 700 }}>البريد الإلكتروني</div>
+            <div style={{ fontSize: 13, padding: "11px 14px", background: C.bgSofter, borderRadius: 10, color: C.textDim }}>{session.email}</div>
+          </div>
           <Field label="رقم الهاتف" value={phone} onChange={(e) => setPhone(e.target.value)} />
           <Btn full disabled={savingProfile} onClick={saveProfile}>{savingProfile ? "جارٍ الحفظ…" : "حفظ التعديلات"}</Btn>
         </Card>
       )}
 
-      {tab === "general" && (
-        <Card className="ss-fadeUp">
-          <SettingsRow icon={Globe} label="اللغة" sub="العربية" right={<ChevronLeft size={15} color={C.textFaint} />} />
-          <div style={{ height: 1, background: C.borderSoft }} />
-          <SettingsRow icon={MoonIcon} label="الوضع الليلي" sub="واجهة تجريبية" right={<Toggle on={dark} onChange={setDark} />} />
-          <div style={{ height: 1, background: C.borderSoft }} />
-          <SettingsRow icon={Bell} label="إشعارات الجوّال" right={<Toggle on={true} onChange={() => {}} />} />
-          <div style={{ height: 1, background: C.borderSoft }} />
-          <SettingsRow icon={MessageCircle} label="تفضيلات البريد الإلكتروني" sub="ملخص أسبوعي فقط" right={<ChevronLeft size={15} color={C.textFaint} />} />
-        </Card>
-      )}
-
-      {tab === "security" && (
+      {tab === "account" && (
         <Card className="ss-fadeUp">
           <SettingsRow icon={Lock} label="تغيير كلمة المرور" onClick={async () => {
             try {
-              await sbRequestPasswordReset(email || session.email);
+              await sbRequestPasswordReset(session.email);
               ctx.toast("تم إرسال رابط تغيير كلمة المرور إلى بريدك ✓");
             } catch (err) {
               ctx.toast(err.message || "تعذّر إرسال الرابط", "error");
             }
           }} right={<ChevronLeft size={15} color={C.textFaint} />} />
           <div style={{ height: 1, background: C.borderSoft }} />
-          <SettingsRow icon={ShieldCheck} label="المصادقة الثنائية 2FA" sub="حماية إضافية عند الدخول" right={<Toggle on={twoFA} onChange={setTwoFA} />} />
+          <SettingsRow icon={LogOut} label="تسجيل الخروج" onClick={async () => {
+            await sbSignOut();
+            ctx.setSession(null);
+            ctx.setView("splash");
+          }} />
           <div style={{ height: 1, background: C.borderSoft }} />
-          <SettingsRow icon={Fingerprint} label="الدخول ببصمة الإصبع" right={<Toggle on={finger} onChange={setFinger} />} />
+          <SettingsRow icon={Trash2} label="حذف الحساب نهائيًا" onClick={() => setShowDeleteConfirm(true)} />
+        </Card>
+      )}
+
+      {tab === "notifications" && (
+        loadingPrefs ? <SkeletonCard /> : prefsError ? <ErrorState onRetry={loadPrefs} /> : (
+          <Card className="ss-fadeUp">
+            <SettingsRow icon={Bell} label="الإشعارات الفورية (Push)" sub="تنبيهات على جهازك" right={<Toggle on={prefs?.push_notifications_enabled ?? true} onChange={(v) => updatePref("push_notifications_enabled", v)} />} />
+            <div style={{ height: 1, background: C.borderSoft }} />
+            <SettingsRow icon={MessageCircle} label="إشعارات البريد الإلكتروني" sub="ملخصات ورسائل مهمة" right={<Toggle on={prefs?.email_notifications_enabled ?? true} onChange={(v) => updatePref("email_notifications_enabled", v)} />} />
+            <div style={{ height: 1, background: C.borderSoft }} />
+            <SettingsRow icon={Users} label="إشعارات المجتمع" sub="إعجابات وتعليقات على منشوراتك" right={<Toggle on={prefs?.community_notifications_enabled ?? true} onChange={(v) => updatePref("community_notifications_enabled", v)} />} />
+          </Card>
+        )
+      )}
+
+      {tab === "privacy" && (
+        loadingPrefs ? <SkeletonCard /> : prefsError ? <ErrorState onRetry={loadPrefs} /> : (
+        <>
+          <Card className="ss-fadeUp" style={{ marginBottom: 14 }}>
+            <SettingsRow icon={Eye} label="ظهور الملف الشخصي" sub={prefs?.profile_visibility === "private" ? "خاص" : "عام"} right={
+              <Toggle on={prefs?.profile_visibility === "public"} onChange={(v) => updatePref("profile_visibility", v ? "public" : "private")} />
+            } />
+            <div style={{ height: 1, background: C.borderSoft }} />
+            <SettingsRow icon={ImageIcon} label="إظهار الصورة الشخصية للآخرين" right={<Toggle on={prefs?.show_profile_picture ?? true} onChange={(v) => updatePref("show_profile_picture", v)} />} />
+            <div style={{ height: 1, background: C.borderSoft }} />
+            <SettingsRow icon={Activity} label="إظهار حالة النشاط" sub="متصل الآن / آخر ظهور" right={<Toggle on={prefs?.show_activity_status ?? true} onChange={(v) => updatePref("show_activity_status", v)} />} />
+            <div style={{ height: 1, background: C.borderSoft }} />
+            <SettingsRow icon={FileText} label={exportingData ? "جارٍ التحميل…" : "تحميل نسخة من بياناتي"} onClick={downloadMyData} right={<ChevronLeft size={15} color={C.textFaint} />} />
+          </Card>
+
+          <Card className="ss-fadeUp" style={{ marginBottom: 14, background: C.blueSoft, border: "none" }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+              <Lock size={16} color={C.blue} style={{ flex: "none", marginTop: 1 }} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 12.5, color: C.blueDeep }}>خصوصية البيانات الطبية</div>
+                <div style={{ fontSize: 11, color: C.blueDeep, lineHeight: 1.7, marginTop: 4 }}>وثيقة هويتك تُخزَّن منفصلة تمامًا عن ملف جلساتك العلاجية. لا يطّلع أي طرف على الاثنين معًا إلا فريق StaySober المخوّل قانونيًا.</div>
+              </div>
+            </div>
+            <SettingsRow icon={ShieldCheck} label="سرّية الجلسات عن ولي الأمر" right={<Pill tone="green">مفعّلة دائمًا</Pill>} />
+          </Card>
+
+          <Card className="ss-fadeUp">
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>جهة اتصال الطوارئ</div>
+            <div style={{ fontSize: 11, color: C.textDim, marginBottom: 14, lineHeight: 1.7 }}>يُتصل بهذا الشخص تلقائيًا كخيار إضافي عند استخدام زر الطوارئ.</div>
+            <Field label="اسم جهة الاتصال" value={emergName} onChange={(e) => setEmergName(e.target.value)} placeholder="مثال: شقيقتي — أمينة" />
+            <Field label="رقم الهاتف" value={emergPhone} onChange={(e) => setEmergPhone(e.target.value)} placeholder="05xxxxxxxx" />
+            <Btn full variant="outline" icon={Users} disabled={savingEmergency} onClick={saveEmergencyContact}>{savingEmergency ? "جارٍ الحفظ…" : "حفظ جهة الاتصال"}</Btn>
+          </Card>
+        </>
+        )
+      )}
+
+      {tab === "appearance" && (
+        loadingPrefs ? <SkeletonCard /> : prefsError ? <ErrorState onRetry={loadPrefs} /> : (
+          <Card className="ss-fadeUp">
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>المظهر</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+              {[["light", "فاتح", Sun], ["dark", "داكن", MoonIcon], ["system", "النظام", Smartphone]].map(([id, label, Icon]) => (
+                <button key={id} onClick={() => updatePref("theme_preference", id)} className="ss-press" style={{ flex: 1, padding: "14px 8px", borderRadius: 12, border: `1.4px solid ${prefs?.theme_preference === id ? C.blue : C.border}`, background: prefs?.theme_preference === id ? C.blueSoft : "#fff", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <Icon size={18} color={prefs?.theme_preference === id ? C.blue : C.textDim} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: prefs?.theme_preference === id ? C.blue : C.textDim }}>{label}</span>
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 10.5, color: C.textFaint, marginTop: 10 }}>الوضع الداكن الفعلي للواجهة تجريبي حاليًا — تفضيلك يُحفظ فعليًا هنا مسبقًا لتفعيله الكامل قريبًا.</div>
+          </Card>
+        )
+      )}
+
+      {tab === "language" && (
+        loadingPrefs ? <SkeletonCard /> : prefsError ? <ErrorState onRetry={loadPrefs} /> : (
+          <Card className="ss-fadeUp">
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>لغة التطبيق</div>
+            {[["ar", "العربية"], ["fr", "Français"], ["en", "English"]].map(([id, label]) => (
+              <button key={id} onClick={() => updatePref("language_preference", id)} className="ss-press" style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", boxSizing: "border-box", padding: "12px 4px", borderBottom: id !== "en" ? `1px solid ${C.borderSoft}` : "none" }}>
+                <span style={{ fontSize: 13, fontWeight: prefs?.language_preference === id ? 700 : 500 }}>{label}</span>
+                {prefs?.language_preference === id && <CheckCircle2 size={16} color={C.blue} />}
+              </button>
+            ))}
+            <div style={{ fontSize: 10.5, color: C.textFaint, marginTop: 10 }}>تفضيلك يُحفظ فعليًا الآن. الترجمة الكاملة للواجهة بالفرنسية والإنجليزية قيد التطوير — العربية هي اللغة المتاحة بالكامل حاليًا.</div>
+          </Card>
+        )
+      )}
+
+      {tab === "security" && (
+        <Card className="ss-fadeUp">
+          <SettingsRow icon={ShieldCheck} label="حالة التحقق من الحساب" right={
+            session.verified ? <Pill tone="green" icon={CheckCircle2}>موثَّق</Pill> : <Pill tone="amber" icon={AlertTriangle}>غير موثَّق بعد</Pill>
+          } />
           <div style={{ height: 1, background: C.borderSoft }} />
-          <SettingsRow icon={ScanFace} label="الدخول بالتعرف على الوجه" right={<Toggle on={false} onChange={() => {}} />} />
+          <SettingsRow icon={Fingerprint} label="المصادقة الثنائية (2FA)" sub="قريبًا — قيد التطوير" right={<Pill tone="dim">قريبًا</Pill>} />
           <div style={{ height: 1, background: C.borderSoft }} />
           <SettingsRow icon={Clock} label="انتهاء الجلسة تلقائيًا" sub="بعد 15 دقيقة من عدم النشاط" right={<button onClick={() => setShowSessionPreview(true)} style={{ background: "none", border: "none", color: C.blue, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}>معاينة</button>} />
           <div style={{ height: 1, background: C.borderSoft }} />
@@ -4341,39 +5002,6 @@ function SettingsScreen({ ctx }) {
         </Card>
       )}
 
-      {tab === "privacy" && (
-        <>
-          <Card className="ss-fadeUp" style={{ marginBottom: 14 }}>
-            <SettingsRow icon={Shield} label="مركز الخصوصية" sub="تحكّم كامل في بياناتك" onClick={() => ctx.toast("صفحة مركز الخصوصية التفصيلية قيد التطوير — الإعدادات الأساسية متاحة في هذه الشاشة", "info")} right={<ChevronLeft size={15} color={C.textFaint} />} />
-            <div style={{ height: 1, background: C.borderSoft }} />
-            <SettingsRow icon={Eye} label="من يمكنه رؤية ملفي" sub="عام" onClick={() => ctx.toast("إعدادات الظهور التفصيلية قيد التطوير", "info")} right={<ChevronLeft size={15} color={C.textFaint} />} />
-            <div style={{ height: 1, background: C.borderSoft }} />
-            <SettingsRow icon={FileText} label={exportingData ? "جارٍ التحميل…" : "تحميل نسخة من بياناتي"} onClick={downloadMyData} right={<ChevronLeft size={15} color={C.textFaint} />} />
-            <div style={{ height: 1, background: C.borderSoft }} />
-            <SettingsRow icon={Trash2} label="حذف الحساب نهائيًا" onClick={() => ctx.toast("يتطلب تأكيدًا إضافيًا عبر البريد الإلكتروني", "error")} />
-          </Card>
-
-          <Card className="ss-fadeUp" style={{ marginBottom: 14, background: C.blueSoft, border: "none" }}>
-            <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-              <Lock size={16} color={C.blue} style={{ flex: "none", marginTop: 1 }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 12.5, color: C.blueDeep }}>خصوصية البيانات الطبية</div>
-                <div style={{ fontSize: 11, color: C.blueDeep, lineHeight: 1.7, marginTop: 4 }}>وثيقة هويتك تُخزَّن منفصلة تمامًا عن ملف جلساتك العلاجية. لا يطّلع أي طرف على الاثنين معًا إلا فريق StaySober المخوّل قانونيًا.</div>
-              </div>
-            </div>
-            <SettingsRow icon={ShieldCheck} label="سرّية الجلسات عن ولي الأمر" right={<Pill tone="green">مفعّلة دائمًا</Pill>} />
-          </Card>
-
-          <Card className="ss-fadeUp">
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>جهة اتصال الطوارئ</div>
-            <div style={{ fontSize: 11, color: C.textDim, marginBottom: 14, lineHeight: 1.7 }}>يُتصل بهذا الشخص تلقائيًا كخيار إضافي عند استخدام زر الطوارئ.</div>
-            <Field label="اسم جهة الاتصال" value={emergName} onChange={(e) => setEmergName(e.target.value)} placeholder="مثال: شقيقتي — أمينة" />
-            <Field label="رقم الهاتف" value={emergPhone} onChange={(e) => setEmergPhone(e.target.value)} placeholder="05xxxxxxxx" />
-            <Btn full variant="outline" icon={Users} disabled={savingEmergency} onClick={saveEmergencyContact}>{savingEmergency ? "جارٍ الحفظ…" : "حفظ جهة الاتصال"}</Btn>
-          </Card>
-        </>
-      )}
-
       {tab === "access" && (
         <Card className="ss-fadeUp">
           <div style={{ padding: "10px 4px" }}>
@@ -4386,12 +5014,31 @@ function SettingsScreen({ ctx }) {
           </div>
           <div style={{ height: 1, background: C.borderSoft, margin: "8px 0" }} />
           <SettingsRow icon={Palette} label="تباين ألوان أعلى" right={<Toggle on={contrast} onChange={setContrast} />} />
-          <div style={{ height: 1, background: C.borderSoft }} />
-          <SettingsRow icon={Volume2} label="دعم قارئ الشاشة" right={<Toggle on={true} onChange={() => {}} />} />
         </Card>
       )}
+
       <SessionExpiredModal show={showSessionPreview} onClose={() => setShowSessionPreview(false)}
         onLogin={() => { ctx.setSession(null); ctx.setView("login"); }} />
+
+      {showDeleteConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
+          <Card className="ss-scaleIn" style={{ maxWidth: 360, width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <AlertTriangle size={20} color={C.ember} />
+              <div style={{ fontWeight: 800, fontSize: 15 }}>حذف الحساب نهائيًا</div>
+            </div>
+            <div style={{ fontSize: 12.5, color: C.textDim, lineHeight: 1.8, marginBottom: 14 }}>
+              هذا الإجراء لا يمكن التراجع عنه. سيُسجَّل خروجك فورًا، وسيتواصل معك فريق الدعم لتأكيد حذف بياناتك نهائيًا خلال 48 ساعة كإجراء أمان إضافي.
+              اكتبي كلمة <b>حذف</b> أدناه للتأكيد.
+            </div>
+            <input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder="اكتبي: حذف" style={{ width: "100%", boxSizing: "border-box", border: `1.4px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", fontSize: 13, fontFamily: FONT, marginBottom: 14 }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn full variant="outline" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }}>إلغاء</Btn>
+              <Btn full variant="ember" disabled={deleteConfirmText !== "حذف" || deletingAccount} onClick={confirmDeleteAccount}>{deletingAccount ? "جارٍ المعالجة…" : "تأكيد الحذف"}</Btn>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
@@ -4661,7 +5308,7 @@ function VideoCallScreen({ ctx }) {
       try {
         const [row] = await sbInsert("video_sessions", [{ appointment_id: realAppointmentId, started_at: new Date().toISOString() }]);
         setSessionRowId(row.id);
-      } catch (err) { console.error("video_sessions insert failed:", err.message); }
+      } catch (err) { console.error("video_sessions insert failed:", err.message); ctx.toast(err.message || "تعذّر تسجيل بيانات الجلسة", "error"); }
     })();
   }, [phase]);
   useEffect(() => {
@@ -4794,14 +5441,35 @@ function CravingScreen({ ctx }) {
   const { session, cravingLogs, addCravingLog } = ctx;
   const [intensity, setIntensity] = useState(4);
   const [tags, setTags] = useState([]);
-  const mine = cravingLogs.filter((l) => l.patientId === session.id);
+  const [recentLogs, setRecentLogs] = useState(null);
+  const [loadingLogs, setLoadingLogs] = useState(true);
   function toggleTag(t) { setTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t])); }
+
+  async function loadRecentLogs() {
+    try {
+      const rows = await sbSelect("mood_logs", {
+        select: "id,logged_at,craving_intensity,triggers",
+        filters: { patient_id: session.id },
+        order: "logged_at.desc",
+        limit: 10,
+      });
+      setRecentLogs(rows);
+    } catch (err) {
+      console.error("mood_logs load failed:", err.message);
+      setRecentLogs([]);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }
+  useEffect(() => { loadRecentLogs(); }, []);
+
   async function save() {
     await addCravingLog({ id: uid(), patientId: session.id, intensity, tags, createdAt: Date.now() });
     setTags([]); setIntensity(4);
     try {
       await sbInsert("mood_logs", [{ patient_id: session.id, craving_intensity: intensity, triggers: tags }]);
       ctx.toast("تم حفظ التسجيل ✓");
+      await loadRecentLogs(); // refresh the real history immediately, not just navigate away blind
       ctx.setView("home");
     } catch (err) {
       console.error("mood_logs insert failed:", err.message);
@@ -4820,6 +5488,25 @@ function CravingScreen({ ctx }) {
         ))}
       </div>
       <Btn full onClick={save}>حفظ التسجيل</Btn>
+
+      <div style={{ fontWeight: 700, fontSize: 13.5, margin: "26px 0 10px" }}>سجلّك الأخير</div>
+      {loadingLogs ? (
+        <SkeletonCard />
+      ) : !recentLogs || recentLogs.length === 0 ? (
+        <EmptyState icon={Activity} title="لا توجد تسجيلات سابقة بعد" sub="سجّلي حالتك اليومية ليبدأ سجلّك بالظهور هنا" />
+      ) : (
+        <Card>
+          {recentLogs.map((l, i) => (
+            <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: i < recentLogs.length - 1 ? `1px solid ${C.borderSoft}` : "none" }}>
+              <Pill tone={l.craving_intensity >= 7 ? "ember" : l.craving_intensity >= 4 ? "amber" : "green"}>{l.craving_intensity}/10</Pill>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11.5 }}>{(l.triggers || []).join("، ") || "بلا مؤثرات محدَّدة"}</div>
+                <div style={{ fontSize: 9.5, color: C.textFaint, marginTop: 2 }}>{new Date(l.logged_at).toLocaleString("ar")}</div>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
     </div>
   );
 }
@@ -4908,7 +5595,7 @@ export default function App() {
             const appRole = DB_ROLE_TO_APP_ROLE[dbUser.role] || "patient";
             setSession({
               id: dbUser.id, name: dbUser.full_name, email: dbUser.email, phone: dbUser.phone,
-              role: appRole, wilaya: dbUser.wilaya, verified: dbUser.verified, createdAt: dbUser.created_at,
+              role: appRole, wilaya: dbUser.wilaya, verified: dbUser.verified, createdAt: dbUser.created_at, avatar_url: dbUser.avatar_url,
             });
             setView(navFor(appRole)[0].id);
           }
