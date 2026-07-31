@@ -1,0 +1,151 @@
+[1mdiff --git a/src/App.jsx b/src/App.jsx[m
+[1mindex dc55bf7..16183e7 100644[m
+[1m--- a/src/App.jsx[m
+[1m+++ b/src/App.jsx[m
+[36m@@ -120,24 +120,6 @@[m [mfunction assertSupabaseConfigured() {[m
+ [m
+ let sbSession = null; // { access_token, refresh_token, user, expires_at }[m
+ [m
+[31m-// ============================================================================[m
+[31m-// TEMPORARY DIAGNOSTIC — logs every unhandled promise rejection and every[m
+[31m-// uncaught error to the console, with full detail. Registered once at[m
+[31m-// module load so it catches anything regardless of which screen is mounted[m
+[31m-// when it fires, including things that happen after navigating away from a[m
+[31m-// screen. No application logic is changed by this block.[m
+[31m-// ============================================================================[m
+[31m-if (typeof window !== "undefined") {[m
+[31m-  window.addEventListener("unhandledrejection", (event) => {[m
+[31m-    console.error("[DIAG] UNHANDLED PROMISE REJECTION:", event.reason);[m
+[31m-    if (event.reason?.stack) console.error("[DIAG] stack:", event.reason.stack);[m
+[31m-  });[m
+[31m-  window.addEventListener("error", (event) => {[m
+[31m-    console.error("[DIAG] UNCAUGHT ERROR:", event.message, "at", event.filename + ":" + event.lineno + ":" + event.colno);[m
+[31m-    if (event.error?.stack) console.error("[DIAG] stack:", event.error.stack);[m
+[31m-  });[m
+[31m-}[m
+[31m-[m
+ async function sbRestoreSession() {[m
+   try {[m
+     const saved = await window.storage.get("staysober2:sbSession", false);[m
+[36m@@ -236,15 +218,12 @@[m [mfunction sbHeaders(extra) {[m
+ async function sbFetch(url, options) {[m
+   let res = await fetch(url, options);[m
+   if (res.status === 401 && sbSession?.refresh_token) {[m
+[31m-    console.error("[DIAG] got 401 for:", url, "— attempting token refresh");[m
+     try {[m
+       await sbRefreshSession(sbSession.refresh_token);[m
+       const refreshedOptions = { ...options, headers: { ...options.headers, Authorization: `Bearer ${sbSession.access_token}` } };[m
+       res = await fetch(url, refreshedOptions);[m
+[31m-      console.error("[DIAG] retry after refresh — status:", res.status, "for:", url);[m
+     } catch (refreshErr) {[m
+[31m-      console.error("[DIAG] token refresh failed — full error:", refreshErr);[m
+[31m-      console.error("[DIAG] token refresh failed — message:", refreshErr.message, "| stack:", refreshErr.stack);[m
+[32m+[m[32m      console.error("token refresh failed:", refreshErr.message);[m
+       // fall through with the original 401 response — caller's normal[m
+       // error handling takes over from here[m
+     }[m
+[36m@@ -2735,8 +2714,7 @@[m [mfunction MessagesScreen({ ctx }) {[m
+       }));[m
+       setConvos(results);[m
+     } catch (err) {[m
+[31m-      console.error("[DIAG] conversations load failed — full error object:", err);[m
+[31m-      console.error("[DIAG] conversations load failed — message:", err.message, "| name:", err.name, "| stack:", err.stack);[m
+[32m+[m[32m      console.error("conversations load failed:", err.message);[m
+       setConvosError(err.message || "تعذّر تحميل المحادثات");[m
+     } finally {[m
+       setLoadingConvos(false);[m
+[36m@@ -2799,8 +2777,7 @@[m [mfunction ChatScreen({ ctx }) {[m
+       });[m
+       setMsgs(rows.map((r) => ({ id: r.id, me: r.sender_id === ctx.session.id, t: r.body, seen: !!r.seen_at })));[m
+     } catch (err) {[m
+[31m-      console.error("[DIAG] messages load failed — full error object:", err);[m
+[31m-      console.error("[DIAG] messages load failed — message:", err.message, "| name:", err.name, "| stack:", err.stack);[m
+[32m+[m[32m      console.error("messages load failed:", err.message);[m
+       setMsgsError(err.message || "تعذّر تحميل الرسائل السابقة");[m
+       setMsgs([]); // honest: show an empty real conversation rather than a misleading demo one[m
+     } finally {[m
+[36m@@ -2836,7 +2813,7 @@[m [mfunction ChatScreen({ ctx }) {[m
+           heartbeatTimer = setInterval(() => {[m
+             try { socket.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: "hb" })); } catch { /* handled by onerror */ }[m
+           }, 25000);[m
+[31m-        } catch (err) { console.error("[DIAG] realtime join failed — full error:", err); console.error("[DIAG] realtime join failed — message:", err.message, "| stack:", err.stack); startPollingFallback(); }[m
+[32m+[m[32m        } catch (err) { console.error("realtime join failed:", err.message); startPollingFallback(); }[m
+       };[m
+       socket.onmessage = (event) => {[m
+         if (isUnmounting) return;[m
+[36m@@ -2848,14 +2825,13 @@[m [mfunction ChatScreen({ ctx }) {[m
+           }[m
+         } catch { /* ignore malformed frames rather than crash the screen */ }[m
+       };[m
+[31m-      socket.onerror = (event) => { if (isUnmounting) return; console.error("[DIAG] realtime WebSocket onerror event:", event); console.error("[DIAG] socket.readyState at error:", socket.readyState); startPollingFallback(); };[m
+[32m+[m[32m      socket.onerror = () => { if (isUnmounting) return; console.error("realtime socket error — falling back to polling"); startPollingFallback(); };[m
+       // onclose fires on EVERY close, including our own intentional close()[m
+       // below when this screen is left — isUnmounting distinguishes the two,[m
+       // preventing a zombie polling timer from outliving the component.[m
+[31m-      socket.onclose = (event) => { console.error("[DIAG] realtime WebSocket onclose — code:", event.code, "| reason:", event.reason, "| wasClean:", event.wasClean, "| isUnmounting:", isUnmounting); if (!usingFallback && !isUnmounting) startPollingFallback(); };[m
+[32m+[m[32m      socket.onclose = () => { if (!usingFallback && !isUnmounting) startPollingFallback(); };[m
+     } catch (err) {[m
+[31m-      console.error("[DIAG] realtime setup failed — full error:", err);[m
+[31m-      console.error("[DIAG] realtime setup failed — message:", err.message, "| stack:", err.stack);[m
+[32m+[m[32m      console.error("realtime setup failed:", err.message);[m
+       startPollingFallback();[m
+     }[m
+     return () => {[m
+[36m@@ -2876,8 +2852,7 @@[m [mfunction ChatScreen({ ctx }) {[m
+       try {[m
+         await sbInsert("messages", [{ conversation_id: conversationId, sender_id: ctx.session.id, body }]);[m
+       } catch (err) {[m
+[31m-        console.error("[DIAG] message insert failed — full error object:", err);[m
+[31m-        console.error("[DIAG] message insert failed — message:", err.message, "| stack:", err.stack);[m
+[32m+[m[32m        console.error("message insert failed:", err.message);[m
+         setMsgs((m) => m.map((x) => x.id === localId ? { ...x, failed: true } : x));[m
+       }[m
+     } else {[m
+[36m@@ -3098,7 +3073,7 @@[m [mfunction CommunityScreen({ ctx }) {[m
+           heartbeatTimer = setInterval(() => {[m
+             try { socket.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: "hb" })); } catch { /* handled by onerror */ }[m
+           }, 25000);[m
+[31m-        } catch (err) { console.error("[DIAG] realtime join failed — full error:", err); console.error("[DIAG] realtime join failed — message:", err.message, "| stack:", err.stack); startPollingFallback(); }[m
+[32m+[m[32m        } catch (err) { console.error("realtime join failed:", err.message); startPollingFallback(); }[m
+       };[m
+       socket.onmessage = (event) => {[m
+         if (isUnmounting) return;[m
+[36m@@ -3110,11 +3085,10 @@[m [mfunction CommunityScreen({ ctx }) {[m
+           }[m
+         } catch { /* ignore malformed frames rather than crash the screen */ }[m
+       };[m
+[31m-      socket.onerror = (event) => { if (isUnmounting) return; console.error("[DIAG] realtime WebSocket onerror event:", event); console.error("[DIAG] socket.readyState at error:", socket.readyState); startPollingFallback(); };[m
+[31m-      socket.onclose = (event) => { console.error("[DIAG] realtime WebSocket onclose — code:", event.code, "| reason:", event.reason, "| wasClean:", event.wasClean, "| isUnmounting:", isUnmounting); if (!usingFallback && !isUnmounting) startPollingFallback(); };[m
+[32m+[m[32m      socket.onerror = () => { if (isUnmounting) return; console.error("realtime socket error — falling back to polling"); startPollingFallback(); };[m
+[32m+[m[32m      socket.onclose = () => { if (!usingFallback && !isUnmounting) startPollingFallback(); };[m
+     } catch (err) {[m
+[31m-      console.error("[DIAG] realtime setup failed — full error:", err);[m
+[31m-      console.error("[DIAG] realtime setup failed — message:", err.message, "| stack:", err.stack);[m
+[32m+[m[32m      console.error("realtime setup failed:", err.message);[m
+       startPollingFallback();[m
+     }[m
+ [m
+[36m@@ -4541,7 +4515,7 @@[m [mfunction NotificationsScreen({ ctx }) {[m
+           heartbeatTimer = setInterval(() => {[m
+             try { socket.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: "hb" })); } catch { /* handled by onerror */ }[m
+           }, 25000);[m
+[31m-        } catch (err) { console.error("[DIAG] realtime join failed — full error:", err); console.error("[DIAG] realtime join failed — message:", err.message, "| stack:", err.stack); startPollingFallback(); }[m
+[32m+[m[32m        } catch (err) { console.error("realtime join failed:", err.message); startPollingFallback(); }[m
+       };[m
+       socket.onmessage = (event) => {[m
+         if (isUnmounting) return;[m
+[36m@@ -4554,11 +4528,10 @@[m [mfunction NotificationsScreen({ ctx }) {[m
+           }[m
+         } catch { /* ignore malformed frames rather than crash the screen */ }[m
+       };[m
+[31m-      socket.onerror = (event) => { if (isUnmounting) return; console.error("[DIAG] realtime WebSocket onerror event:", event); console.error("[DIAG] socket.readyState at error:", socket.readyState); startPollingFallback(); };[m
+[31m-      socket.onclose = (event) => { console.error("[DIAG] realtime WebSocket onclose — code:", event.code, "| reason:", event.reason, "| wasClean:", event.wasClean, "| isUnmounting:", isUnmounting); if (!usingFallback && !isUnmounting) startPollingFallback(); };[m
+[32m+[m[32m      socket.onerror = () => { if (isUnmounting) return; console.error("realtime socket error — falling back to polling"); startPollingFallback(); };[m
+[32m+[m[32m      socket.onclose = () => { if (!usingFallback && !isUnmounting) startPollingFallback(); };[m
+     } catch (err) {[m
+[31m-      console.error("[DIAG] realtime setup failed — full error:", err);[m
+[31m-      console.error("[DIAG] realtime setup failed — message:", err.message, "| stack:", err.stack);[m
+[32m+[m[32m      console.error("realtime setup failed:", err.message);[m
+       startPollingFallback();[m
+     }[m
+     return () => {[m
