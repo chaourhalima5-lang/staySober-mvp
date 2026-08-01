@@ -1180,7 +1180,7 @@ function LandingScreen({ ctx }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Logomark size={30} /><span style={{ fontWeight: 800, fontFamily: DISPLAY, fontSize: 16 }}>StaySober</span></div>
           {!isMobile && (
             <div style={{ display: "flex", gap: 26, fontSize: 13, fontWeight: 600, color: C.textDim }}>
-              <a href="#features" style={{ color: "inherit", textDecoration: "none" }}>الميزات</a>
+              <a href="#features" onClick={(e) => { e.preventDefault(); document.getElementById("features")?.scrollIntoView({ behavior: "smooth" }); }} style={{ color: "inherit", textDecoration: "none", cursor: "pointer" }}>الميزات</a>
               <a href="#how" style={{ color: "inherit", textDecoration: "none" }}>كيف يعمل</a>
               <a href="#faq" style={{ color: "inherit", textDecoration: "none" }}>الأسئلة الشائعة</a>
             </div>
@@ -1201,8 +1201,7 @@ function LandingScreen({ ctx }) {
             أنت أقوى من الإدمان، وعائلتك تستحق رؤية أفضل نسخة منك. رعاية نفسية ورياضية وغذائية في ملف واحد، دعم فوري وقت الأزمة، وتكوين مهني حقيقي يعيدك لسوق العمل بثقة.
           </p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <Btn size="lg" icon={ArrowLeft} onClick={() => ctx.setView("splash")}>ابدأ رحلتك مجانًا</Btn>
-            <Btn size="lg" variant="outline" onClick={() => document.getElementById("how")?.scrollIntoView({ behavior: "smooth" })}>شاهد كيف يعمل</Btn>
+            <Btn size="lg" icon={ArrowLeft} onClick={() => ctx.setView("splash")}>ابدأ رحلتك معنا</Btn>
           </div>
         </div>
         <div className="ss-scaleIn" style={{ borderRadius: 28, overflow: "hidden", boxShadow: C.shadowLg, border: `1px solid ${C.border}` }}>
@@ -1274,20 +1273,28 @@ function LandingScreen({ ctx }) {
           <div style={{ fontSize: 12, fontWeight: 800, color: C.blue, letterSpacing: ".06em", textTransform: "uppercase" }}>رحلتك معنا</div>
           <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24, marginTop: 8 }}>كيف تعمل المنصة</div>
         </div>
-        <div style={{ maxWidth: 480, margin: "0 auto", position: "relative" }}>
-          <div style={{ position: "absolute", insetInlineStart: 23, top: 24, bottom: 24, width: 2, background: C.border }} />
-          {HOW_IT_WORKS.map((s, i) => (
-            <div key={s.n} style={{ display: "flex", gap: 18, marginBottom: i === HOW_IT_WORKS.length - 1 ? 0 : 30, position: "relative" }}>
-              <div style={{ width: 48, height: 48, borderRadius: "50%", background: `linear-gradient(135deg, ${C.blueBright}, ${C.blueDeep})`, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", boxShadow: C.shadow, zIndex: 1 }}>
-                <s.icon size={20} />
+        <div style={{ position: "relative" }}>
+          {!isMobile && <div style={{ position: "absolute", top: 28, insetInline: "8%", height: 2, background: `linear-gradient(90deg, ${C.blueSoft}, ${C.blue}, ${C.blueSoft})`, zIndex: 0 }} />}
+          <div style={{
+            display: isMobile ? "flex" : "grid",
+            gridTemplateColumns: isMobile ? undefined : `repeat(${HOW_IT_WORKS.length},1fr)`,
+            gap: isMobile ? 16 : 10,
+            overflowX: isMobile ? "auto" : "visible",
+            paddingBottom: isMobile ? 8 : 0,
+            scrollSnapType: isMobile ? "x mandatory" : undefined,
+            position: "relative",
+          }}>
+            {HOW_IT_WORKS.map((s) => (
+              <div key={s.n} className="ss-fadeUp" style={{ textAlign: "center", flex: isMobile ? "0 0 62%" : undefined, scrollSnapAlign: isMobile ? "start" : undefined }}>
+                <div style={{ width: 56, height: 56, borderRadius: "50%", background: `linear-gradient(135deg, ${C.blueBright}, ${C.blueDeep})`, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", position: "relative", zIndex: 1, boxShadow: C.shadow }}>
+                  <s.icon size={22} />
+                </div>
+                <div style={{ fontSize: 10.5, fontWeight: 800, color: C.blue, marginBottom: 4 }}>الخطوة {s.n}</div>
+                <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 5 }}>{s.title}</div>
+                <div style={{ fontSize: 11.5, color: C.textDim, lineHeight: 1.7, maxWidth: 170, margin: "0 auto" }}>{s.body}</div>
               </div>
-              <div style={{ paddingTop: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: C.blue, marginBottom: 3 }}>الخطوة {s.n}</div>
-                <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>{s.title}</div>
-                <div style={{ fontSize: 12.5, color: C.textDim, lineHeight: 1.75 }}>{s.body}</div>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </Section>
 
@@ -1300,9 +1307,17 @@ function LandingScreen({ ctx }) {
         </div>
         <div style={{ position: "relative" }}>
           {!isMobile && <div style={{ position: "absolute", top: 26, insetInline: "6%", height: 2, background: `linear-gradient(90deg, ${C.blueSoft}, ${C.blue}, ${C.blueSoft})` }} />}
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 1 : 5},1fr)`, gap: isMobile ? 22 : 14, position: "relative" }}>
+          <div style={{
+            display: isMobile ? "flex" : "grid",
+            gridTemplateColumns: isMobile ? undefined : `repeat(5,1fr)`,
+            gap: isMobile ? 18 : 14,
+            overflowX: isMobile ? "auto" : "visible",
+            paddingBottom: isMobile ? 8 : 0,
+            scrollSnapType: isMobile ? "x mandatory" : undefined,
+            position: "relative",
+          }}>
             {RECOVERY_JOURNEY.map((r, i) => (
-              <div key={r.phase} className="ss-fadeUp" style={{ textAlign: "center", animationDelay: `${i * 0.08}s` }}>
+              <div key={r.phase} className="ss-fadeUp" style={{ textAlign: "center", animationDelay: `${i * 0.08}s`, flex: isMobile ? "0 0 58%" : undefined, scrollSnapAlign: isMobile ? "start" : undefined }}>
                 <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#fff", border: `3px solid ${C.blue}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", position: "relative", zIndex: 1, boxShadow: C.shadow }}>
                   <r.icon size={21} color={C.blue} />
                 </div>
@@ -1455,8 +1470,8 @@ function SplashScreen({ ctx }) {
    ONBOARDING (3 pages, skip/next)
    ========================================================================= */
 const ONBOARD_SLIDES = [
-  { photo: TEAM_IMG, title: "رعاية متكاملة في مكان واحد", body: "نفسية، رياضية، وغذائية — فريق واحد يتابعك بملف مشترك دون انقطاع بين التخصصات.", tint: C.blue },
-  { illustration: "learning", title: "اندماج مهني حقيقي بعد التعافي", body: "تكوينات في البرمجة، التصميم، الحرف، واللغات — مهارات تفتح لك بابًا جديدًا في سوق العمل.", tint: C.amber },
+  { photo: "/images/onboarding-recovery-plan.png", fit: "contain", title: "متابعتك تبدأ من احتياجاتك", body: "نضع معك خطة تعافٍ شخصية تناسب احتياجاتك، ونتابع تقدمك خطوة بخطوة من خلال مسار واضح ومنظم.", tint: C.blue },
+  { photo: "/images/onboarding-career-skills.png", fit: "contain", title: "مهارة اليوم، مهنة الغد", body: "طوّر مهاراتك من خلال برامج وتكوينات مهنية تساعدك على اكتساب حرفة، تطوير قدراتك، والاستعداد للاندماج في سوق العمل.", tint: C.amber },
   { photo: "/images/privacy-security.jpeg", title: "خصوصيتك أولوية مطلقة", body: "بياناتك مشفّرة، وسرّية جلساتك محفوظة حتى من أولياء الأمور — وفق القانون 18-07.", tint: C.green },
 ];
 function OnboardingScreen({ ctx }) {
@@ -1471,7 +1486,7 @@ function OnboardingScreen({ ctx }) {
       <div key={i} className="ss-scaleIn" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px", textAlign: "center" }}>
         {slide.photo ? (
           <div style={{ width: 220, height: 220, borderRadius: 28, overflow: "hidden", marginBottom: 26, boxShadow: C.shadowLg, border: `1px solid ${C.border}`, background: `${slide.tint}14` }}>
-            <img src={slide.photo} alt={slide.title} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+            <img src={slide.photo} alt={slide.title} style={{ width: "100%", height: "100%", objectFit: slide.fit || "cover", objectPosition: slide.fit === "contain" ? "center" : "top" }} />
           </div>
         ) : slide.illustration ? (
           <div style={{ width: 220, height: 220, borderRadius: 28, overflow: "hidden", marginBottom: 26, boxShadow: C.shadowLg, border: `1px solid ${C.border}` }}>
